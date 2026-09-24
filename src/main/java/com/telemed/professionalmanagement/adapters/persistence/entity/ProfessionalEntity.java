@@ -9,26 +9,19 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(
-        name = "professionals",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_professionals_identity_user_id", columnNames = "identity_user_id"),
-                @UniqueConstraint(name = "uk_professionals_license_number", columnNames = "license_number")
-        }
-)
+@Table(name = "professionals")
 public class ProfessionalEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "identity_user_id", nullable = false, unique = true)
+    @Column(name = "identity_user_id", nullable = false)
     private Long identityUserId;
 
-    @Column(name = "license_number", nullable = false, unique = true, length = 80)
+    @Column(name = "license_number", nullable = false, length = 80)
     private String licenseNumber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
