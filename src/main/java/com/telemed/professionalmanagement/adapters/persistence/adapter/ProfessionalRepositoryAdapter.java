@@ -7,6 +7,7 @@ import com.telemed.professionalmanagement.adapters.persistence.repository.Profes
 import com.telemed.professionalmanagement.adapters.persistence.repository.SpecialtyJpaRepository;
 import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
 import com.telemed.professionalmanagement.domain.Professional;
+import com.telemed.professionalmanagement.domain.SpecialtyNotFoundException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -30,7 +31,7 @@ public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort
     @Override
     public Professional save(Professional professional) {
         SpecialtyEntity specialtyEntity = specialtyJpaRepository.findById(professional.getSpecialtyId())
-                .orElseThrow(() -> new IllegalArgumentException("Specialty not found with id: " + professional.getSpecialtyId()));
+                .orElseThrow(() -> new SpecialtyNotFoundException(professional.getSpecialtyId()));
 
         ProfessionalEntity entity = mapper.toEntity(professional, specialtyEntity);
         ProfessionalEntity saved = professionalJpaRepository.save(entity);
