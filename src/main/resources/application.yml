@@ -6,8 +6,8 @@ spring:
     name: telemed-ia-professional-management-api
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/telemed_professional_management}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
