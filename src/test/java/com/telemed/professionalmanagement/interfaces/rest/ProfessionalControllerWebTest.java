@@ -5,6 +5,8 @@ import com.telemed.professionalmanagement.application.command.RegisterProfession
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
 import com.telemed.professionalmanagement.application.port.in.RegisterProfessionalUseCase;
+import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
+import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.Professional;
 import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
 import com.telemed.professionalmanagement.interfaces.rest.controller.ProfessionalController;
@@ -106,6 +108,46 @@ class ProfessionalControllerWebTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldReturnConflictWhenProfessionalLicenseIsDuplicate() throws Exception {
+        when(registerProfessionalUseCase.register(any(RegisterProfessionalCommand.class)))
+                .thenThrow(new DuplicateProfessionalLicenseException("ABC-123"));
+
+        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(
+                99L, "ABC-123", 7L, 12
+        ));
+
+        mockMvc.perform(post("/api/professionals")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.path").value("/api/professionals"));
+    }
+
+    @Test
+    void shouldReturnConflictWhenProfessionalIdentityIsDuplicate() throws Exception {
+        when(registerProfessionalUseCase.register(any(RegisterProfessionalCommand.class)))
+                .thenThrow(new DuplicateProfessionalIdentityException(99L));
+
+        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(
+                99L, "ABC-123", 7L, 12
+        ));
+
+        mockMvc.perform(post("/api/professionals")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.path").value("/api/professionals"));
     }
 
     @Test
