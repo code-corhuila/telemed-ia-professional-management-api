@@ -11,6 +11,7 @@ import com.telemed.professionalmanagement.interfaces.rest.controller.Professiona
 import com.telemed.professionalmanagement.interfaces.rest.exception.ApiExceptionHandler;
 import com.telemed.professionalmanagement.interfaces.rest.mapper.ProfessionalRestMapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -20,7 +21,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -62,6 +66,15 @@ class ProfessionalControllerWebTest {
                 .andExpect(jsonPath("$.id").value(5))
                 .andExpect(jsonPath("$.identityUserId").value(99))
                 .andExpect(jsonPath("$.licenseNumber").value("ABC-123"));
+
+        ArgumentCaptor<RegisterProfessionalCommand> commandCaptor =
+                ArgumentCaptor.forClass(RegisterProfessionalCommand.class);
+        verify(registerProfessionalUseCase, times(1)).register(commandCaptor.capture());
+        RegisterProfessionalCommand command = commandCaptor.getValue();
+        assertEquals(99L, command.identityUserId());
+        assertEquals("ABC-123", command.licenseNumber());
+        assertEquals(7L, command.specialtyId());
+        assertEquals(12, command.yearsExperience());
     }
 
     @Test
