@@ -6,8 +6,12 @@ import com.telemed.professionalmanagement.adapters.persistence.mapper.Profession
 import com.telemed.professionalmanagement.adapters.persistence.repository.ProfessionalJpaRepository;
 import com.telemed.professionalmanagement.adapters.persistence.repository.SpecialtyJpaRepository;
 import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
+import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
+import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.Professional;
 import com.telemed.professionalmanagement.domain.SpecialtyNotFoundException;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -34,7 +38,19 @@ public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort
                 .orElseThrow(() -> new SpecialtyNotFoundException(professional.getSpecialtyId()));
 
         ProfessionalEntity entity = mapper.toEntity(professional, specialtyEntity);
-        ProfessionalEntity saved = professionalJpaRepository.save(entity);
+        ProfessionalEntity saved;
+        try {
+            saved = professionalJpaRepository.save(entity);
+        } catch (DataIntegrityViolationException exception) {
+            String constraintName = findConstraintName(exception);
+            if ("uq_professionals_identity_user_id".equals(constraintName)) {
+                throw new DuplicateProfessionalIdentityException(professional.getIdentityUserId());
+            }
+            if ("uq_professionals_license_number".equals(constraintName)) {
+                throw new DuplicateProfessionalLicenseException(professional.getLicenseNumber());
+            }
+            throw exception;
+        }
         return mapper.toDomain(saved);
     }
 
@@ -59,5 +75,16 @@ public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort
             return false;
         }
         return professionalJpaRepository.findByLicenseNumber(licenseNumber.trim()).isPresent();
+    }
+
+    private String findConstraintName(Throwable exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof ConstraintViolationException violationException) {
+                return violationException.getConstraintName();
+            }
+            cause = cause.getCause();
+        }
+        return null;
     }
 }
