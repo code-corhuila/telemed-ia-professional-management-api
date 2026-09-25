@@ -13,6 +13,7 @@ import com.telemed.professionalmanagement.interfaces.rest.dto.SpecialtyRequest;
 import com.telemed.professionalmanagement.interfaces.rest.exception.ApiExceptionHandler;
 import com.telemed.professionalmanagement.interfaces.rest.mapper.SpecialtyRestMapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -22,8 +23,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -63,6 +67,12 @@ class SpecialtyControllerWebTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(3))
                 .andExpect(jsonPath("$.name").value("Neurology"));
+
+        ArgumentCaptor<CreateSpecialtyCommand> commandCaptor =
+                ArgumentCaptor.forClass(CreateSpecialtyCommand.class);
+        verify(createSpecialtyUseCase, times(1)).create(commandCaptor.capture());
+        assertEquals("Neurology", commandCaptor.getValue().name());
+        assertEquals("Brain health", commandCaptor.getValue().description());
     }
 
     @Test
@@ -77,6 +87,12 @@ class SpecialtyControllerWebTest {
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").value("Brain care"));
+
+        ArgumentCaptor<UpdateSpecialtyCommand> commandCaptor =
+                ArgumentCaptor.forClass(UpdateSpecialtyCommand.class);
+        verify(updateSpecialtyUseCase, times(1)).update(eq(3L), commandCaptor.capture());
+        assertEquals("Neurology", commandCaptor.getValue().name());
+        assertEquals("Brain care", commandCaptor.getValue().description());
     }
 
     @Test
