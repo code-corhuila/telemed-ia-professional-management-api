@@ -74,10 +74,12 @@ The domain layer does not depend on Spring, JPA or REST components, and persiste
 
 ```bash
 export DB_URL=jdbc:postgresql://localhost:5432/telemed_professional_management
-export DB_USERNAME=postgres
-export DB_PASSWORD=postgres
+export DB_USERNAME=your-db-username
+export DB_PASSWORD=your-db-password
 export SERVER_PORT=8080
 ```
+
+The database username and password above are examples. Supply the actual credentials through environment variables.
 
 ## Run tests
 
@@ -101,17 +103,14 @@ The application listens on port 8080 by default or on `SERVER_PORT` if set.
 
 ## REST endpoints
 
-### Professionals
-
-- `GET /api/professionals`
-- `GET /api/professionals/{professionalId}`
-- `POST /api/professionals`
-
-### Specialties
-
-- `GET /api/specialties`
-- `POST /api/specialties`
-- `PUT /api/specialties/{specialtyId}`
+| Method and route | Purpose | Request body | Successful response | Relevant errors |
+|---|---|---|---|---|
+| `GET /api/professionals` | List professionals. | — | `200 OK` | — |
+| `GET /api/professionals/{professionalId}` | Get a professional by ID. | — | `200 OK` | `404 Not Found` |
+| `POST /api/professionals` | Register a professional. | `identityUserId` (number), `licenseNumber` (string), `specialtyId` (number), `yearsExperience` (integer) | `201 Created` | `400 Bad Request`, `404 Not Found` (specialty), `409 Conflict` (duplicate identity or license) |
+| `GET /api/specialties` | List specialties. | — | `200 OK` | — |
+| `POST /api/specialties` | Create a specialty. | `name` (string), `description` (string or null) | `201 Created` | `400 Bad Request`, `409 Conflict` (duplicate name) |
+| `PUT /api/specialties/{specialtyId}` | Update a specialty. | `name` (string), `description` (string or null) | `200 OK` | `400 Bad Request`, `404 Not Found`, `409 Conflict` (duplicate name) |
 
 ## Swagger / OpenAPI
 
