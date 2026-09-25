@@ -8,6 +8,7 @@ import com.telemed.professionalmanagement.domain.Specialty;
 import com.telemed.professionalmanagement.domain.SpecialtyNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -16,8 +17,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,10 +36,19 @@ class SpecialtyApplicationServiceTest {
     @Test
     void shouldCreateSpecialtySuccessfully() {
         when(specialtyRepositoryPort.findByName("Cardiology")).thenReturn(Optional.empty());
-        when(specialtyRepositoryPort.save(any(Specialty.class))).thenAnswer(invocation ->
-                new Specialty(5L, "Cardiology", "Heart care"));
+        when(specialtyRepositoryPort.save(any(Specialty.class))).thenAnswer(invocation -> {
+            Specialty specialty = invocation.getArgument(0);
+            return new Specialty(5L, specialty.getName(), specialty.getDescription());
+        });
 
         Specialty created = specialtyApplicationService.create(new CreateSpecialtyCommand("Cardiology", "Heart care"));
+
+        ArgumentCaptor<Specialty> specialtyCaptor = ArgumentCaptor.forClass(Specialty.class);
+        verify(specialtyRepositoryPort, times(1)).save(specialtyCaptor.capture());
+        Specialty saved = specialtyCaptor.getValue();
+        assertNull(saved.getId());
+        assertEquals("Cardiology", saved.getName());
+        assertEquals("Heart care", saved.getDescription());
 
         assertEquals(5L, created.getId());
         assertEquals("Cardiology", created.getName());
