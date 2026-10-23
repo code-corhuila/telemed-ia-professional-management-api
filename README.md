@@ -2,8 +2,8 @@
 
 > professional-management bounded context: service API
 
-Part of the **LMS Library** distributed system — team `lms-library`, Grupo 2.
-Governance and documentation live in [`library-docs`](https://github.com/code-corhuila/library-docs).
+Part of the **TeleMed IA** distributed system — Grupo 2.
+Governance and documentation live in [`telemed-ia-docs`](https://github.com/code-corhuila/telemed-ia-docs).
 
 ## Branching
 
@@ -22,7 +22,7 @@ branch into another: `merge develop -> qa` and `merge qa -> main` do not exist i
 `main` requires **1 approval from `ariel5253`**. On `develop` and `qa` the team sets its own review
 rule.
 
-Full policy: `00-governance/branching-policy.md` in `library-docs`.
+Full policy: `00-governance/` in `telemed-ia-docs`.
 
 ## Purpose
 
@@ -39,8 +39,8 @@ This service does not create users, roles, sessions, passwords or JWTs. Those be
 
 ## Technology stack
 
-- Java 17
-- Spring Boot 3.3.13
+- Java 21 (Anexo I)
+- Spring Boot 3.5.6
 - Maven
 - Spring Web
 - Spring Validation
@@ -65,32 +65,23 @@ The domain layer does not depend on Spring, JPA or REST components, and persiste
 
 ## Local setup
 
-1. Ensure Java 17 and Maven are installed.
-2. Provision a PostgreSQL database for this bounded context.
+1. Ensure Java 21 and Maven are installed.
+2. Start the shared PostgreSQL instance of `telemed-ia-infra-postgres` and apply the
+   migrations of `telemed-ia-professional-management-db` (Anexo J).
 3. Export the required environment variables.
 4. Start the API from the project root.
 
 ## Required environment variables
 
-```bash
-export DB_URL=jdbc:postgresql://localhost:5432/telemed_professional_management
-export DB_USERNAME=your-db-username
-export DB_PASSWORD=your-db-password
-export SERVER_PORT=8080
-```
+Every variable the service reads is listed, with sample values only, in [`.env.example`](.env.example).
+Real values come from the environment file of `telemed-ia-infra-postgres`; never commit them.
 
-The database username and password above are examples. Supply the actual credentials through environment variables.
+## Build and test
 
-## Run tests
+The same command as the CI (`.github/workflows/ci.yml`):
 
 ```bash
-mvn test
-```
-
-## Build the project
-
-```bash
-mvn package
+mvn -B verify
 ```
 
 ## Run the API
