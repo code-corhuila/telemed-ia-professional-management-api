@@ -1,17 +1,16 @@
 package com.telemed.professionalmanagement.adapters.persistence;
 
-import com.telemed.professionalmanagement.adapters.persistence.entity.ProfessionalEntity;
-import com.telemed.professionalmanagement.adapters.persistence.entity.SpecialtyEntity;
-import com.telemed.professionalmanagement.adapters.persistence.repository.ProfessionalJpaRepository;
-import com.telemed.professionalmanagement.adapters.persistence.repository.SpecialtyJpaRepository;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import com.telemed.professionalmanagement.adapters.persistence.entity.ProfessionalEntity;
+import com.telemed.professionalmanagement.adapters.persistence.repository.ProfessionalJpaRepository;
 
 @DataJpaTest
 @ActiveProfiles("test")
@@ -20,38 +19,36 @@ class ProfessionalRepositoryIntegrationTest {
     @Autowired
     private ProfessionalJpaRepository professionalJpaRepository;
 
-    @Autowired
-    private SpecialtyJpaRepository specialtyJpaRepository;
+    private static ProfessionalEntity professional(Long identityUserId, String licenseNumber, int yearsExperience) {
+        return new ProfessionalEntity(null, identityUserId, licenseNumber, yearsExperience,
+                "GENERAL_PRACTITIONER", "ACTIVE");
+    }
 
     @Test
-    void shouldMapProfessionalAndSpecialtyRelationship() {
-        SpecialtyEntity specialty = specialtyJpaRepository.saveAndFlush(new SpecialtyEntity(null, "Cardiology", "Heart care"));
-        ProfessionalEntity professional = professionalJpaRepository.saveAndFlush(
-                new ProfessionalEntity(null, 100L, "ABC-123", specialty, 8)
-        );
+    void shouldMapTheProfessionalProfile() {
+        ProfessionalEntity saved = professionalJpaRepository.saveAndFlush(professional(100L, "ABC-123", 8));
 
-        ProfessionalEntity found = professionalJpaRepository.findById(professional.getId()).orElseThrow();
+        ProfessionalEntity found = professionalJpaRepository.findById(saved.getId()).orElseThrow();
         assertEquals(100L, found.getIdentityUserId());
         assertEquals("ABC-123", found.getLicenseNumber());
-        assertEquals("Cardiology", found.getSpecialty().getName());
         assertEquals(8, found.getYearsExperience());
+        assertEquals("GENERAL_PRACTITIONER", found.getProfessionalType());
+        assertEquals("ACTIVE", found.getStatus());
     }
 
     @Test
     void shouldRejectDuplicateIdentityUserId() {
-        SpecialtyEntity specialty = specialtyJpaRepository.saveAndFlush(new SpecialtyEntity(null, "Cardiology", "Heart care"));
-        professionalJpaRepository.saveAndFlush(new ProfessionalEntity(null, 100L, "ABC-123", specialty, 5));
+        professionalJpaRepository.saveAndFlush(professional(100L, "ABC-123", 5));
 
-        assertThrows(DataIntegrityViolationException.class, () -> professionalJpaRepository.saveAndFlush(
-                new ProfessionalEntity(null, 100L, "XYZ-999", specialty, 7)));
+        assertThrows(DataIntegrityViolationException.class,
+                () -> professionalJpaRepository.saveAndFlush(professional(100L, "XYZ-999", 7)));
     }
 
     @Test
     void shouldRejectDuplicateLicenseNumber() {
-        SpecialtyEntity specialty = specialtyJpaRepository.saveAndFlush(new SpecialtyEntity(null, "Neurology", "Brain"));
-        professionalJpaRepository.saveAndFlush(new ProfessionalEntity(null, 100L, "ABC-123", specialty, 5));
+        professionalJpaRepository.saveAndFlush(professional(100L, "ABC-123", 5));
 
-        assertThrows(DataIntegrityViolationException.class, () -> professionalJpaRepository.saveAndFlush(
-                new ProfessionalEntity(null, 200L, "ABC-123", specialty, 7)));
+        assertThrows(DataIntegrityViolationException.class,
+                () -> professionalJpaRepository.saveAndFlush(professional(200L, "ABC-123", 7)));
     }
 }
