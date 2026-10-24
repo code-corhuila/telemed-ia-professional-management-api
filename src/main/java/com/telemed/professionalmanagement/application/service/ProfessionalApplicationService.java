@@ -6,12 +6,10 @@ import com.telemed.professionalmanagement.application.port.in.GetProfessionalUse
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
 import com.telemed.professionalmanagement.application.port.in.RegisterProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
-import com.telemed.professionalmanagement.application.port.out.SpecialtyRepositoryPort;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.Professional;
 import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
-import com.telemed.professionalmanagement.domain.SpecialtyNotFoundException;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
@@ -19,12 +17,8 @@ import java.util.List;
 public class ProfessionalApplicationService implements RegisterProfessionalUseCase, ListProfessionalsUseCase, GetProfessionalUseCase {
 
     private final ProfessionalRepositoryPort professionalRepositoryPort;
-    private final SpecialtyRepositoryPort specialtyRepositoryPort;
-
-    public ProfessionalApplicationService(ProfessionalRepositoryPort professionalRepositoryPort,
-                                         SpecialtyRepositoryPort specialtyRepositoryPort) {
+    public ProfessionalApplicationService(ProfessionalRepositoryPort professionalRepositoryPort) {
         this.professionalRepositoryPort = professionalRepositoryPort;
-        this.specialtyRepositoryPort = specialtyRepositoryPort;
     }
 
     @Override
@@ -36,18 +30,11 @@ public class ProfessionalApplicationService implements RegisterProfessionalUseCa
         if (professionalRepositoryPort.existsByLicenseNumber(command.licenseNumber())) {
             throw new DuplicateProfessionalLicenseException(command.licenseNumber());
         }
-        specialtyRepositoryPort.findById(command.specialtyId())
-                .orElseThrow(() -> new SpecialtyNotFoundException(command.specialtyId()));
-
-        Professional professional = new Professional(
-                null,
+        return professionalRepositoryPort.save(Professional.register(
                 command.identityUserId(),
                 command.licenseNumber(),
-                command.specialtyId(),
                 command.yearsExperience()
-        );
-
-        return professionalRepositoryPort.save(professional);
+        ));
     }
 
     @Override
