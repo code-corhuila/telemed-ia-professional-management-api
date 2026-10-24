@@ -6,7 +6,7 @@ services:
   professional-management-api:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: deploy/Dockerfile
     image: telemed-ia/professional-management-api:dev
     restart: unless-stopped
     environment:
