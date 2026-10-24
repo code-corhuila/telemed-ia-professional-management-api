@@ -1,5 +1,7 @@
 package com.telemed.professionalmanagement.adapters.persistence.entity;
 
+import java.util.UUID;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -10,20 +12,21 @@ import jakarta.persistence.UniqueConstraint;
 
 @Entity
 @Table(
-        name = "professionals",
+        schema = "professional_management",
+        name = "professional",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_professionals_identity_user_id", columnNames = "identity_user_id"),
-                @UniqueConstraint(name = "uk_professionals_license_number", columnNames = "license_number")
+                @UniqueConstraint(name = "uq_professionals_identity_user_id", columnNames = "identity_user_id"),
+                @UniqueConstraint(name = "uq_professionals_license_number", columnNames = "license_number")
         }
 )
 public class ProfessionalEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "identity_user_id", nullable = false, unique = true)
-    private Long identityUserId;
+    private UUID identityUserId;
 
     @Column(name = "license_number", nullable = false, unique = true, length = 80)
     private String licenseNumber;
@@ -40,7 +43,7 @@ public class ProfessionalEntity {
     protected ProfessionalEntity() {
     }
 
-    public ProfessionalEntity(Long id, Long identityUserId, String licenseNumber, Integer yearsExperience,
+    public ProfessionalEntity(UUID id, UUID identityUserId, String licenseNumber, Integer yearsExperience,
                               String professionalType, String status) {
         this.id = id;
         this.identityUserId = identityUserId;
@@ -50,19 +53,19 @@ public class ProfessionalEntity {
         this.status = status;
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 
-    public Long getIdentityUserId() {
+    public UUID getIdentityUserId() {
         return identityUserId;
     }
 
-    public void setIdentityUserId(Long identityUserId) {
+    public void setIdentityUserId(UUID identityUserId) {
         this.identityUserId = identityUserId;
     }
 
