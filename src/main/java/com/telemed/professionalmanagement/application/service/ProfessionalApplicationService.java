@@ -1,5 +1,7 @@
 package com.telemed.professionalmanagement.application.service;
 
+import java.util.UUID;
+
 import com.telemed.professionalmanagement.application.command.RegisterProfessionalCommand;
 import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
@@ -43,7 +45,7 @@ public class ProfessionalApplicationService implements RegisterProfessionalUseCa
     }
 
     @Override
-    public Professional getById(Long professionalId) {
+    public Professional getById(UUID professionalId) {
         return professionalRepositoryPort.findById(professionalId)
                 .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
     }
