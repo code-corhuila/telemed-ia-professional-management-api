@@ -1,0 +1,119 @@
+openapi: 3.0.3
+info:
+  title: Professional Service API
+  version: 1.0.0
+  description: |
+    Servicio de gestión de profesionales para TeleMed IA.
+    Maneja perfiles de profesionales, especialidades y registro.
+
+servers:
+  - url: http://localhost:8080/api/professionals
+    description: Local development
+
+tags:
+  - name: Professionals
+    description: Operaciones sobre profesionales
+  - name: Admin
+    description: Operaciones administrativas
+
+paths:
+  /:
+    get:
+      summary: Listar profesionales
+      tags: [Professionals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/PageParam'
+        - $ref: './_shared.yaml#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Lista de profesionales
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/PaginatedProfessionalResponse'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+
+  /{id}:
+    get:
+      summary: Obtener profesional por ID
+      tags: [Professionals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Profesional encontrado
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/Professional'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
+  /admin/register:
+    post:
+      summary: Register a new professional (ADMIN only)
+      description: |
+        When registering the profile, the system initializes its status as `ACTIVE`
+        and its `professionalType` as `GENERAL_PRACTITIONER` (DEC-005: every
+        professional is a general practitioner; there is no specialty catalog).
+        Neither is sent in this request.
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/IdempotencyKey'
+        - $ref: './_shared.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, email, identityDocument, password, licenseNumber, yearsExperience]
+              properties:
+                fullName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                identityDocument:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                licenseNumber:
+                  type: string
+                yearsExperience:
+                  type: integer
+                  minimum: 0
+      responses:
+        '201':
+          description: Professional registered with profile status `ACTIVE`
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/Professional'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './_shared.yaml#/components/responses/Forbidden'
+        '409':
+          description: Email o documento ya registrado
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: './_shared.yaml#/components/securitySchemes/bearerAuth'
