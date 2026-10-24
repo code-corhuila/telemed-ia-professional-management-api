@@ -44,6 +44,11 @@ public class ApiExceptionHandler {
         return respond(400, ApiError.invalid(details, trace(request)));
     }
 
+    @ExceptionHandler(InvalidRequestException.class)
+    ResponseEntity<ApiError> invalidRequest(InvalidRequestException ex, HttpServletRequest request) {
+        return respond(400, ApiError.invalid(ex.details(), trace(request)));
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     ResponseEntity<ApiError> invalidValue(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
         return invalidField(ex.getName(), "has an invalid format", request);
