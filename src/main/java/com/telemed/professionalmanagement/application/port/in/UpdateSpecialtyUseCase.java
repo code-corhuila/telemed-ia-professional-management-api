@@ -4,5 +4,5 @@ import com.telemed.professionalmanagement.application.command.UpdateSpecialtyCom
 import com.telemed.professionalmanagement.domain.Specialty;
 
 public interface UpdateSpecialtyUseCase {
-    Specialty update(Long specialtyId, UpdateSpecialtyCommand command);
+    Specialty update(Caller caller, Long specialtyId, UpdateSpecialtyCommand command);
 }
