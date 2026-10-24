@@ -2,42 +2,21 @@ package com.telemed.professionalmanagement.application.service;
 
 import java.util.UUID;
 
-import com.telemed.professionalmanagement.application.command.RegisterProfessionalCommand;
-import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
 import com.telemed.professionalmanagement.application.port.in.Page;
 import com.telemed.professionalmanagement.application.port.in.PageRequest;
-import com.telemed.professionalmanagement.application.port.in.RegisterProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
-import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
-import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.Professional;
 import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ProfessionalApplicationService implements RegisterProfessionalUseCase, ListProfessionalsUseCase, GetProfessionalUseCase {
+public class ProfessionalApplicationService implements ListProfessionalsUseCase, GetProfessionalUseCase {
 
     private final ProfessionalRepositoryPort professionalRepositoryPort;
     public ProfessionalApplicationService(ProfessionalRepositoryPort professionalRepositoryPort) {
         this.professionalRepositoryPort = professionalRepositoryPort;
-    }
-
-    @Override
-    public Professional register(Caller caller, RegisterProfessionalCommand command) {
-        caller.requireAdmin();
-        if (professionalRepositoryPort.existsByIdentityUserId(command.identityUserId())) {
-            throw new DuplicateProfessionalIdentityException(command.identityUserId());
-        }
-        if (professionalRepositoryPort.existsByLicenseNumber(command.licenseNumber())) {
-            throw new DuplicateProfessionalLicenseException(command.licenseNumber());
-        }
-        return professionalRepositoryPort.save(Professional.register(
-                command.identityUserId(),
-                command.licenseNumber(),
-                command.yearsExperience()
-        ));
     }
 
     @Override

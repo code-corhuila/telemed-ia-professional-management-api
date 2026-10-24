@@ -9,7 +9,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.telemed.professionalmanagement.application.port.in.Page;
 import com.telemed.professionalmanagement.application.port.in.PageRequest;
+import com.telemed.professionalmanagement.application.port.out.ProfessionalRegistrationStore;
 import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
+import com.telemed.professionalmanagement.application.port.out.StoredRegistration;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.Professional;
@@ -18,9 +20,10 @@ import com.telemed.professionalmanagement.domain.Professional;
  * The repository port in memory, for the HTTP-level contract checks (Anexo C). The SQL is
  * covered by {@code ProfessionalRepositoryPostgresTest}. Same order as the adapter: by license.
  */
-class InMemoryProfessionals implements ProfessionalRepositoryPort {
+class InMemoryProfessionals implements ProfessionalRepositoryPort, ProfessionalRegistrationStore {
 
     private final Map<UUID, Professional> rows = new ConcurrentHashMap<>();
+    private final Map<String, StoredRegistration> keys = new ConcurrentHashMap<>();
 
     @Override
     public synchronized Professional save(Professional professional) {
@@ -60,5 +63,21 @@ class InMemoryProfessionals implements ProfessionalRepositoryPort {
     public boolean existsByLicenseNumber(String licenseNumber) {
         return licenseNumber != null
                 && rows.values().stream().anyMatch(row -> row.getLicenseNumber().equals(licenseNumber.trim()));
+    }
+
+    @Override
+    public Optional<StoredRegistration> findByIdempotencyKey(String idempotencyKey) {
+        return Optional.ofNullable(keys.get(idempotencyKey));
+    }
+
+    @Override
+    public synchronized Optional<Professional> saveRegistration(Professional professional, String idempotencyKey,
+                                                                String requestHash) {
+        if (keys.containsKey(idempotencyKey)) {
+            return Optional.empty();
+        }
+        Professional saved = save(professional);
+        keys.put(idempotencyKey, new StoredRegistration(saved, requestHash));
+        return Optional.of(saved);
     }
 }

@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.telemed.professionalmanagement.application.port.in.AccessDeniedException;
+import com.telemed.professionalmanagement.application.port.in.IdempotencyKeyReusedException;
+import com.telemed.professionalmanagement.application.port.out.IdentityAccountConflictException;
+import com.telemed.professionalmanagement.application.port.out.IdentityUnavailableException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.InvalidBusinessDataException;
@@ -86,9 +89,22 @@ public class ApiExceptionHandler {
         return respond(404, ApiError.forStatus(404, trace(request)));
     }
 
-    @ExceptionHandler({DuplicateProfessionalIdentityException.class, DuplicateProfessionalLicenseException.class})
+    @ExceptionHandler({DuplicateProfessionalIdentityException.class, DuplicateProfessionalLicenseException.class,
+            IdentityAccountConflictException.class})
     ResponseEntity<ApiError> duplicate(RuntimeException ex, HttpServletRequest request) {
         return respond(409, ApiError.of(ApiError.CONFLICT, ex.getMessage(), trace(request)));
+    }
+
+    @ExceptionHandler(IdempotencyKeyReusedException.class)
+    ResponseEntity<ApiError> keyReused(IdempotencyKeyReusedException ex, HttpServletRequest request) {
+        return respond(422, ApiError.of(ApiError.BUSINESS_RULE_VIOLATION, ex.getMessage(), trace(request)));
+    }
+
+    /** The identity service could not create the account; the reason goes to the log only. */
+    @ExceptionHandler(IdentityUnavailableException.class)
+    ResponseEntity<ApiError> identityUnavailable(IdentityUnavailableException ex, HttpServletRequest request) {
+        LOG.warn("identity unavailable on {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+        return respond(503, ApiError.forStatus(503, trace(request)));
     }
 
     /** A uniqueness or integrity rule enforced by the database; the cause goes to the log. */

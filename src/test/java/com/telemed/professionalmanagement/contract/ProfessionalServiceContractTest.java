@@ -32,6 +32,9 @@ import com.atlassian.oai.validator.model.SimpleResponse;
 import com.atlassian.oai.validator.report.ValidationReport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telemed.professionalmanagement.application.port.in.PageRequest;
+import com.telemed.professionalmanagement.application.port.out.IdentityAccountConflictException;
+import com.telemed.professionalmanagement.application.port.out.IdentityAccountPort;
 import com.telemed.professionalmanagement.domain.Professional;
 import com.telemed.professionalmanagement.interfaces.rest.auth.TestTokens;
 
@@ -43,9 +46,9 @@ import com.telemed.professionalmanagement.interfaces.rest.auth.TestTokens;
  * {@code 07-api/contracts/openapi/professional-service.yaml} (copied under
  * {@code src/test/resources/contract/}).
  *
- * <p>Items of the checklist that do not apply yet: idempotent creation and the request body of
- * {@code POST /admin/register} (not implemented: it creates the identity account too, DEC-003),
- * money (no amounts), dates (the profile has none) and state transitions (none by HTTP).
+ * <p>{@code POST /admin/register} creates the identity account too (DEC-003); here identity is
+ * a double that answers as its contract will. Items of the checklist that do not apply: money
+ * (no amounts), dates (the profile has none) and state transitions (none by HTTP).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -53,6 +56,8 @@ import com.telemed.professionalmanagement.interfaces.rest.auth.TestTokens;
 class ProfessionalServiceContractTest {
 
     private static final String BASE = "/api/professionals";
+    private static final String ROUTE = BASE + "/admin/register";
+    private static final String ADMIN = TestTokens.bearer("admin-contract", "ADMIN");
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     private static final OpenApiInteractionValidator CONTRACT = OpenApiInteractionValidator
@@ -84,6 +89,18 @@ class ProfessionalServiceContractTest {
         @Primary
         InMemoryProfessionals inMemoryProfessionals() {
             return new InMemoryProfessionals();
+        }
+
+        /** Identity as its contract will answer: a new account id, or a conflict for a taken e-mail. */
+        @Bean
+        @Primary
+        IdentityAccountPort identityDouble() {
+            return (account, key) -> {
+                if (account.email().startsWith("taken")) {
+                    throw new IdentityAccountConflictException();
+                }
+                return UUID.randomUUID();
+            };
         }
     }
 
@@ -221,8 +238,10 @@ class ProfessionalServiceContractTest {
             JsonNode meta = reply.json().get("meta");
             assertThat(meta.get("page").asInt()).isEqualTo(1);
             assertThat(meta.get("limit").asInt()).isEqualTo(2);
-            assertThat(meta.get("total").asInt()).isEqualTo(3);
-            assertThat(meta.get("totalPages").asInt()).isEqualTo(2);
+            // Other groups may have registered professionals in the same store.
+            long total = storedTotal();
+            assertThat(meta.get("total").asLong()).isEqualTo(total);
+            assertThat(meta.get("totalPages").asLong()).isEqualTo((total + 1) / 2);
         }
 
         @Test
@@ -243,10 +262,10 @@ class ProfessionalServiceContractTest {
 
         @Test
         void aPagePastTheEndIsEmptyButKeepsTheTotal() throws Exception {
-            Reply reply = send(read(get(BASE + "?page=9&limit=2")));
+            Reply reply = send(read(get(BASE + "?page=1000&limit=2")));
 
             assertThat(reply.json().get("data").size()).isZero();
-            assertThat(reply.json().get("meta").get("total").asInt()).isEqualTo(3);
+            assertThat(reply.json().get("meta").get("total").asLong()).isEqualTo(storedTotal());
         }
 
         @Test
@@ -262,7 +281,81 @@ class ProfessionalServiceContractTest {
         }
     }
 
+    // ----------------------------------------------------------- Idempotent registration
+
+    @Nested
+    class IdempotentRegistration {
+
+        @Test
+        void theFirstRequestIs201WithAUuidAndItsLocation() throws Exception {
+            Reply reply = send(register("contract-" + UUID.randomUUID(), body("CT-REG-1", "ana1@telemed.test")));
+
+            assertThat(reply.status()).isEqualTo(201);
+            String id = reply.json().get("id").asText();
+            assertThat(UUID.fromString(id).toString()).isEqualTo(id);
+            assertThat(reply.header("Location")).isEqualTo("/api/v1/professionals/" + id);
+            assertThat(reply.json().get("status").asText()).isEqualTo("ACTIVE");
+        }
+
+        @Test
+        void aRetryWithTheSameKeyIs200WithTheSameId() throws Exception {
+            String key = "contract-" + UUID.randomUUID();
+            Reply first = send(register(key, body("CT-REG-2", "ana2@telemed.test")));
+
+            Reply retry = send(register(key, body("CT-REG-2", "ana2@telemed.test")));
+
+            assertThat(retry.status()).isEqualTo(200);
+            assertThat(retry.json().get("id").asText()).isEqualTo(first.json().get("id").asText());
+        }
+
+        @Test
+        void theSameKeyWithAnotherBodyIs422() throws Exception {
+            String key = "contract-" + UUID.randomUUID();
+            send(register(key, body("CT-REG-3", "ana3@telemed.test")));
+
+            assertError(send(register(key, body("CT-REG-4", "ana4@telemed.test"))), 422, "BUSINESS_RULE_VIOLATION");
+        }
+
+        @Test
+        void aTakenAccountOrLicenseIs409() throws Exception {
+            assertError(send(register("contract-" + UUID.randomUUID(), body("CT-REG-5", "taken@telemed.test"))),
+                    409, "CONFLICT");
+            send(register("contract-" + UUID.randomUUID(), body("CT-REG-6", "ana6@telemed.test")));
+            assertError(send(register("contract-" + UUID.randomUUID(), body("CT-REG-6", "ana7@telemed.test"))),
+                    409, "CONFLICT");
+        }
+
+        @Test
+        void anInvalidBodyNamesEveryInvalidFieldIncludingTheIdempotencyKeyHeader() throws Exception {
+            Reply reply = send(post(ROUTE, "{\"email\":\"nope\"}").header("Authorization", ADMIN));
+
+            assertError(reply, 400, "VALIDATION_ERROR");
+            assertThat(reply.json().get("details").findValuesAsText("field"))
+                    .contains("Idempotency-Key", "fullName", "email", "password", "licenseNumber");
+        }
+
+        @Test
+        void aPatientCannotRegister() throws Exception {
+            assertError(send(read(post(ROUTE, body("CT-REG-8", "ana8@telemed.test"))
+                    .header("Idempotency-Key", "contract-" + UUID.randomUUID()))), 403, "FORBIDDEN");
+        }
+
+        private HttpRequest.Builder register(String key, String body) {
+            return post(ROUTE, body).header("Authorization", ADMIN).header("Idempotency-Key", key);
+        }
+
+        private static String body(String license, String email) {
+            return "{\"fullName\":\"Ana Gómez\",\"email\":\"" + email + "\",\"identityDocument\":\"" + email
+                    + "\",\"password\":\"temporary-pass-1\",\"licenseNumber\":\"" + license
+                    + "\",\"yearsExperience\":5}";
+        }
+    }
+
     // ------------------------------------------------------------------------- helpers
+
+    private long storedTotal() {
+        return professionals.findPage(new PageRequest(1, PageRequest.MAX_LIMIT)).total();
+    }
 
     private record Reply(int status, Map<String, List<String>> headers, String body, JsonNode json) {
 
@@ -282,6 +375,12 @@ class ProfessionalServiceContractTest {
     }
 
     /** Any authenticated caller reads professionals; a patient is the least privileged one. */
+    private HttpRequest.Builder post(String path, String body) {
+        return HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body));
+    }
+
     private HttpRequest.Builder read(HttpRequest.Builder request) {
         return request.header("Authorization", TestTokens.bearer(reader, "PATIENT"));
     }

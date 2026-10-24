@@ -20,7 +20,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.telemed.professionalmanagement.application.command.RegisterProfessionalCommand;
 import com.telemed.professionalmanagement.application.port.in.AccessDeniedException;
 import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.Page;
@@ -53,42 +52,6 @@ class ProfessionalApplicationServiceTest {
     private static Professional stored(UUID id, UUID identityUserId, String licenseNumber, int yearsExperience) {
         return new Professional(id, identityUserId, licenseNumber, yearsExperience,
                 ProfessionalType.GENERAL_PRACTITIONER, ProfessionalStatus.ACTIVE);
-    }
-
-    @Test
-    void aRegisteredProfessionalIsAnActiveGeneralPractitioner() {
-        when(professionalRepositoryPort.existsByIdentityUserId(ACCOUNT)).thenReturn(false);
-        when(professionalRepositoryPort.existsByLicenseNumber("ABC-123")).thenReturn(false);
-        when(professionalRepositoryPort.save(any(Professional.class))).thenAnswer(invocation -> {
-            Professional candidate = invocation.getArgument(0);
-            return new Professional(ID, candidate.getIdentityUserId(), candidate.getLicenseNumber(),
-                    candidate.getYearsExperience(), candidate.getProfessionalType(), candidate.getStatus());
-        });
-
-        Professional professional = professionalApplicationService.register(ADMIN,
-                new RegisterProfessionalCommand(ACCOUNT, "ABC-123", 12));
-
-        ArgumentCaptor<Professional> saved = ArgumentCaptor.forClass(Professional.class);
-        verify(professionalRepositoryPort).save(saved.capture());
-        assertNull(saved.getValue().getId());
-        assertEquals(ProfessionalType.GENERAL_PRACTITIONER, saved.getValue().getProfessionalType());
-        assertEquals(ProfessionalStatus.ACTIVE, saved.getValue().getStatus());
-        assertEquals(ID, professional.getId());
-        assertEquals(ACCOUNT, professional.getIdentityUserId());
-        assertEquals("ABC-123", professional.getLicenseNumber());
-        assertEquals(12, professional.getYearsExperience());
-    }
-
-    @Test
-    void aDuplicateAccountOrLicenseIsAConflict() {
-        when(professionalRepositoryPort.existsByIdentityUserId(ACCOUNT)).thenReturn(true);
-        assertThrows(DuplicateProfessionalIdentityException.class, () -> professionalApplicationService.register(ADMIN,
-                new RegisterProfessionalCommand(ACCOUNT, "ABC-123", 12)));
-
-        when(professionalRepositoryPort.existsByIdentityUserId(OTHER_ACCOUNT)).thenReturn(false);
-        when(professionalRepositoryPort.existsByLicenseNumber("ABC-123")).thenReturn(true);
-        assertThrows(DuplicateProfessionalLicenseException.class, () -> professionalApplicationService.register(ADMIN,
-                new RegisterProfessionalCommand(OTHER_ACCOUNT, "ABC-123", 12)));
     }
 
     @Test
@@ -138,12 +101,4 @@ class ProfessionalApplicationServiceTest {
         assertEquals(3, page.totalPages());
     }
 
-    @Test
-    void onlyAnAdministratorRegistersAProfessional() {
-        Caller patient = new Caller("patient-1", Set.of("PATIENT"));
-
-        assertThrows(AccessDeniedException.class, () -> professionalApplicationService.register(patient,
-                new RegisterProfessionalCommand(ACCOUNT, "ABC-123", 12)));
-        verifyNoInteractions(professionalRepositoryPort);
-    }
 }
