@@ -18,6 +18,8 @@ import org.springframework.test.context.DynamicPropertySource;
 
 import com.telemed.professionalmanagement.adapters.persistence.adapter.ProfessionalRepositoryAdapter;
 import com.telemed.professionalmanagement.adapters.persistence.mapper.ProfessionalPersistenceMapper;
+import com.telemed.professionalmanagement.application.port.in.Page;
+import com.telemed.professionalmanagement.application.port.in.PageRequest;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.Professional;
@@ -86,7 +88,24 @@ class ProfessionalRepositoryPostgresTest {
         assertThat(found.getProfessionalType()).isEqualTo(ProfessionalType.GENERAL_PRACTITIONER);
         assertThat(found.getStatus()).isEqualTo(ProfessionalStatus.ACTIVE);
         assertThat(adapter.findById(UUID.randomUUID())).isEmpty();
-        assertThat(adapter.findAll()).extracting(Professional::getId).contains(saved.getId());
+    }
+
+    @Test
+    void aPageIsOrderedByLicenseAndCountsTheWholeTable() {
+        String prefix = "IT-PAGE-" + UUID.randomUUID() + "-";
+        adapter.save(Professional.register(UUID.randomUUID(), prefix + "c", 1));
+        adapter.save(Professional.register(UUID.randomUUID(), prefix + "a", 1));
+        adapter.save(Professional.register(UUID.randomUUID(), prefix + "b", 1));
+        long rows = jdbc.queryForObject("SELECT count(*) FROM professional_management.professional", Long.class);
+
+        Page<Professional> first = adapter.findPage(new PageRequest(1, 2));
+        Page<Professional> all = adapter.findPage(new PageRequest(1, 100));
+
+        assertThat(first.total()).isEqualTo(rows);
+        assertThat(first.items()).hasSize(2);
+        assertThat(all.items()).extracting(Professional::getLicenseNumber).isSorted()
+                .containsSubsequence(prefix + "a", prefix + "b", prefix + "c");
+        assertThat(adapter.findPage(new PageRequest(1000, 100)).items()).isEmpty();
     }
 
     @Test
