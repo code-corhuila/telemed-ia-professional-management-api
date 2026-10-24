@@ -32,6 +32,7 @@ import com.atlassian.oai.validator.model.SimpleResponse;
 import com.atlassian.oai.validator.report.ValidationReport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telemed.professionalmanagement.application.port.in.PageRequest;
 import com.telemed.professionalmanagement.application.port.out.IdentityAccountConflictException;
 import com.telemed.professionalmanagement.application.port.out.IdentityAccountPort;
 import com.telemed.professionalmanagement.domain.Professional;
@@ -237,8 +238,10 @@ class ProfessionalServiceContractTest {
             JsonNode meta = reply.json().get("meta");
             assertThat(meta.get("page").asInt()).isEqualTo(1);
             assertThat(meta.get("limit").asInt()).isEqualTo(2);
-            assertThat(meta.get("total").asInt()).isEqualTo(3);
-            assertThat(meta.get("totalPages").asInt()).isEqualTo(2);
+            // Other groups may have registered professionals in the same store.
+            long total = storedTotal();
+            assertThat(meta.get("total").asLong()).isEqualTo(total);
+            assertThat(meta.get("totalPages").asLong()).isEqualTo((total + 1) / 2);
         }
 
         @Test
@@ -259,10 +262,10 @@ class ProfessionalServiceContractTest {
 
         @Test
         void aPagePastTheEndIsEmptyButKeepsTheTotal() throws Exception {
-            Reply reply = send(read(get(BASE + "?page=9&limit=2")));
+            Reply reply = send(read(get(BASE + "?page=1000&limit=2")));
 
             assertThat(reply.json().get("data").size()).isZero();
-            assertThat(reply.json().get("meta").get("total").asInt()).isEqualTo(3);
+            assertThat(reply.json().get("meta").get("total").asLong()).isEqualTo(storedTotal());
         }
 
         @Test
@@ -349,6 +352,10 @@ class ProfessionalServiceContractTest {
     }
 
     // ------------------------------------------------------------------------- helpers
+
+    private long storedTotal() {
+        return professionals.findPage(new PageRequest(1, PageRequest.MAX_LIMIT)).total();
+    }
 
     private record Reply(int status, Map<String, List<String>> headers, String body, JsonNode json) {
 
