@@ -4,5 +4,5 @@ import com.telemed.professionalmanagement.application.command.CreateSpecialtyCom
 import com.telemed.professionalmanagement.domain.Specialty;
 
 public interface CreateSpecialtyUseCase {
-    Specialty create(CreateSpecialtyCommand command);
+    Specialty create(Caller caller, CreateSpecialtyCommand command);
 }

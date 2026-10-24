@@ -2,6 +2,7 @@ package com.telemed.professionalmanagement.application.service;
 
 import com.telemed.professionalmanagement.application.command.CreateSpecialtyCommand;
 import com.telemed.professionalmanagement.application.command.UpdateSpecialtyCommand;
+import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.CreateSpecialtyUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListSpecialtiesUseCase;
 import com.telemed.professionalmanagement.application.port.in.UpdateSpecialtyUseCase;
@@ -22,7 +23,8 @@ public class SpecialtyApplicationService implements CreateSpecialtyUseCase, Upda
     }
 
     @Override
-    public Specialty create(CreateSpecialtyCommand command) {
+    public Specialty create(Caller caller, CreateSpecialtyCommand command) {
+        caller.requireAdmin();
         specialtyRepositoryPort.findByName(command.name())
                 .ifPresent(existing -> {
                     throw new DuplicateSpecialtyNameException(existing.getName());
@@ -33,7 +35,8 @@ public class SpecialtyApplicationService implements CreateSpecialtyUseCase, Upda
     }
 
     @Override
-    public Specialty update(Long specialtyId, UpdateSpecialtyCommand command) {
+    public Specialty update(Caller caller, Long specialtyId, UpdateSpecialtyCommand command) {
+        caller.requireAdmin();
         Specialty existing = specialtyRepositoryPort.findById(specialtyId)
                 .orElseThrow(() -> new SpecialtyNotFoundException(specialtyId));
 

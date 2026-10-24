@@ -4,5 +4,6 @@ import com.telemed.professionalmanagement.application.command.RegisterProfession
 import com.telemed.professionalmanagement.domain.Professional;
 
 public interface RegisterProfessionalUseCase {
-    Professional register(RegisterProfessionalCommand command);
+    /** Only an administrator registers a professional (DEC-003). */
+    Professional register(Caller caller, RegisterProfessionalCommand command);
 }

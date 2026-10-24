@@ -1,6 +1,7 @@
 package com.telemed.professionalmanagement.application.service;
 
 import com.telemed.professionalmanagement.application.command.RegisterProfessionalCommand;
+import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
 import com.telemed.professionalmanagement.application.port.in.RegisterProfessionalUseCase;
@@ -27,7 +28,8 @@ public class ProfessionalApplicationService implements RegisterProfessionalUseCa
     }
 
     @Override
-    public Professional register(RegisterProfessionalCommand command) {
+    public Professional register(Caller caller, RegisterProfessionalCommand command) {
+        caller.requireAdmin();
         if (professionalRepositoryPort.existsByIdentityUserId(command.identityUserId())) {
             throw new DuplicateProfessionalIdentityException(command.identityUserId());
         }
