@@ -1,0 +1,29 @@
+# Professional Management API service. telemed-ia-infra-postgres includes this file
+# in the platform composition root (Anexo G).
+# The service declares `expose`, not `ports`: only the API Gateway is
+# published to the host (Anexo G, "Solo el gateway se publica al host").
+services:
+  professional-management-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: telemed-ia/professional-management-api:dev
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: "8080"
+      # Public key of the identity service (numeral 5.3.7). The service does not
+      # start without it.
+      JWT_PUBLIC_KEY: "${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY is required}"
+      # Shared PostgreSQL instance (Anexo J), with the domain's application user.
+      DB_URL: "jdbc:postgresql://postgres:5432/${PG_DATABASE:-telemed_ia}"
+      DB_USERNAME: "${PROFESSIONAL_MANAGEMENT_APP_USER:-professional_management_app}"
+      DB_PASSWORD: "${PROFESSIONAL_MANAGEMENT_APP_PASSWORD:?PROFESSIONAL_MANAGEMENT_APP_PASSWORD is required}"
+    expose:
+      - "8080"
+    networks:
+      - platform
+
+networks:
+  platform:
+    external: true
+    name: platform
