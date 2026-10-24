@@ -61,6 +61,17 @@ public class Professional {
         if (identityUserId == null) {
             throw new InvalidBusinessDataException("identityUserId is required");
         }
+        checkProfile(licenseNumber, yearsExperience);
+        if (professionalType == null) {
+            throw new InvalidBusinessDataException("professionalType is required");
+        }
+        if (status == null) {
+            throw new InvalidBusinessDataException("status is required");
+        }
+    }
+
+    /** The rules of the profile itself, checked before any account is created for it. */
+    public static void checkProfile(String licenseNumber, Integer yearsExperience) {
         if (licenseNumber == null || licenseNumber.isBlank()) {
             throw new InvalidBusinessDataException("licenseNumber is required");
         }
@@ -72,12 +83,6 @@ public class Professional {
         }
         if (yearsExperience < 0) {
             throw new InvalidBusinessDataException("yearsExperience must be greater than or equal to 0");
-        }
-        if (professionalType == null) {
-            throw new InvalidBusinessDataException("professionalType is required");
-        }
-        if (status == null) {
-            throw new InvalidBusinessDataException("status is required");
         }
     }
 }
