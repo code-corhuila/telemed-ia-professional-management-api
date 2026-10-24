@@ -6,6 +6,8 @@ import com.telemed.professionalmanagement.application.command.RegisterProfession
 import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
+import com.telemed.professionalmanagement.application.port.in.Page;
+import com.telemed.professionalmanagement.application.port.in.PageRequest;
 import com.telemed.professionalmanagement.application.port.in.RegisterProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
@@ -13,7 +15,6 @@ import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseExc
 import com.telemed.professionalmanagement.domain.Professional;
 import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
 import org.springframework.stereotype.Service;
-import java.util.List;
 
 @Service
 public class ProfessionalApplicationService implements RegisterProfessionalUseCase, ListProfessionalsUseCase, GetProfessionalUseCase {
@@ -40,8 +41,8 @@ public class ProfessionalApplicationService implements RegisterProfessionalUseCa
     }
 
     @Override
-    public List<Professional> listAll() {
-        return professionalRepositoryPort.findAll();
+    public Page<Professional> list(PageRequest page) {
+        return professionalRepositoryPort.findPage(page);
     }
 
     @Override

@@ -2,8 +2,9 @@ package com.telemed.professionalmanagement.application.port.out;
 
 import java.util.UUID;
 
+import com.telemed.professionalmanagement.application.port.in.Page;
+import com.telemed.professionalmanagement.application.port.in.PageRequest;
 import com.telemed.professionalmanagement.domain.Professional;
-import java.util.List;
 import java.util.Optional;
 
 public interface ProfessionalRepositoryPort {
@@ -11,7 +12,8 @@ public interface ProfessionalRepositoryPort {
 
     Optional<Professional> findById(UUID professionalId);
 
-    List<Professional> findAll();
+    /** Ordered by license number, so pages do not overlap. */
+    Page<Professional> findPage(PageRequest page);
 
     boolean existsByIdentityUserId(UUID identityUserId);
 

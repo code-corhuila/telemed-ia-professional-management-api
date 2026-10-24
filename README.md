@@ -104,7 +104,7 @@ The application listens on port 8080 by default or on `SERVER_PORT` if set.
 | Method and route | Purpose | Request body | Successful response | Relevant errors |
 |---|---|---|---|---|
 | `GET /health` | Liveness, without a token (Anexo C). | — | `200 OK` `{"status":"UP"}` | — |
-| `GET /api/professionals` | List professionals. | — | `200 OK` | — |
+| `GET /api/professionals?page=&limit=` | List professionals by license number, one page at a time (`page` from 1, `limit` 1 to 100, default 20). | — | `200 OK` `{data, meta: {page, limit, total, totalPages}}` | `400 Bad Request` (page or limit out of range) |
 | `GET /api/professionals/{professionalId}` | Get a professional by its UUID. | — | `200 OK` | `400 Bad Request` (not a UUID), `404 Not Found` |
 | `POST /api/professionals` | Register a professional. | `identityUserId` (UUID), `licenseNumber` (string), `yearsExperience` (integer) | `201 Created`, an `ACTIVE` general practitioner | `400 Bad Request`, `409 Conflict` (duplicate identity or license) |
 
