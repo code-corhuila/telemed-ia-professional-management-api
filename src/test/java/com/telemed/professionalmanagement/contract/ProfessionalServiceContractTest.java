@@ -1,0 +1,316 @@
+package com.telemed.professionalmanagement.contract;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+
+import com.atlassian.oai.validator.OpenApiInteractionValidator;
+import com.atlassian.oai.validator.model.Request;
+import com.atlassian.oai.validator.model.SimpleResponse;
+import com.atlassian.oai.validator.report.ValidationReport;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telemed.professionalmanagement.domain.Professional;
+import com.telemed.professionalmanagement.interfaces.rest.auth.TestTokens;
+
+/**
+ * Contract checks of Anexo C, numeral 5.3.12, adapted to the professionals of this domain and
+ * run by HTTP against the running service. As Anexo C sets for the HTTP level, the server reads
+ * an in-memory repository ({@link InMemoryProfessionals}), so the checks run everywhere, CI
+ * included. Every response of a contract route is also validated against the published
+ * {@code 07-api/contracts/openapi/professional-service.yaml} (copied under
+ * {@code src/test/resources/contract/}).
+ *
+ * <p>Items of the checklist that do not apply yet: idempotent creation and the request body of
+ * {@code POST /admin/register} (not implemented: it creates the identity account too, DEC-003),
+ * money (no amounts), dates (the profile has none) and state transitions (none by HTTP).
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class ProfessionalServiceContractTest {
+
+    private static final String BASE = "/api/professionals";
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final HttpClient HTTP = HttpClient.newHttpClient();
+    private static final OpenApiInteractionValidator CONTRACT = OpenApiInteractionValidator
+            .createForSpecificationUrl(ProfessionalServiceContractTest.class
+                    .getResource("/contract/professional-service.yaml").toString())
+            .withBasePathOverride(BASE)
+            // The list schema is an allOf; merged first, so it is checked as one object.
+            .withResolveCombinators(true)
+            .build();
+
+    private final String reader = UUID.randomUUID().toString();
+    private final List<Professional> seeded = new ArrayList<>();
+
+    @LocalServerPort
+    private int port;
+
+    @Autowired
+    private InMemoryProfessionals professionals;
+
+    @DynamicPropertySource
+    static void environment(DynamicPropertyRegistry registry) {
+        registry.add("JWT_PUBLIC_KEY", TestTokens::trustedPublicKeyPemOneLine);
+    }
+
+    @TestConfiguration
+    static class InMemoryPersistence {
+
+        @Bean
+        @Primary
+        InMemoryProfessionals inMemoryProfessionals() {
+            return new InMemoryProfessionals();
+        }
+    }
+
+    /** Three profiles; the contract has no creation route implemented yet (see the class note). */
+    @BeforeAll
+    void seedProfessionals() {
+        for (String license : List.of("CT-0003", "CT-0001", "CT-0002")) {
+            seeded.add(professionals.save(Professional.register(UUID.randomUUID(), license, 4)));
+        }
+    }
+
+    // ---------------------------------------------------------------- Authentication
+
+    @Nested
+    class Authentication {
+
+        @Test
+        void healthAnswersWithoutAToken() throws Exception {
+            assertThat(send(get("/health")).status()).isEqualTo(200);
+        }
+
+        @Test
+        void withoutATokenEveryContractRouteIs401Unauthorized() throws Exception {
+            assertError(send(get(BASE)), 401, "UNAUTHORIZED");
+            assertError(send(get(BASE + "/" + seeded.get(0).getId())), 401, "UNAUTHORIZED");
+        }
+
+        @Test
+        void aTokenWithoutAnRs256SignatureIs401() throws Exception {
+            String payload = payload(reader, "PATIENT", 3600);
+            for (String token : List.of(TestTokens.unsigned(payload), TestTokens.hs256WithPublicKeyAsSecret(payload),
+                    TestTokens.signedWith(TestTokens.TRUSTED.getPrivate(), "{\"alg\":\"RS512\"}", payload))) {
+                assertError(send(get(BASE).header("Authorization", "Bearer " + token)), 401, "UNAUTHORIZED");
+            }
+        }
+
+        @Test
+        void anExpiredTokenIs401() throws Exception {
+            String token = TestTokens.rs256(payload(reader, "PATIENT", -3600));
+            assertError(send(get(BASE).header("Authorization", "Bearer " + token)), 401, "UNAUTHORIZED");
+        }
+
+        @Test
+        void aTokenSignedWithAnotherKeyIs401() throws Exception {
+            String token = TestTokens.signedWith(TestTokens.OTHER.getPrivate(), "{\"alg\":\"RS256\"}",
+                    payload(reader, "PATIENT", 3600));
+            assertError(send(get(BASE).header("Authorization", "Bearer " + token)), 401, "UNAUTHORIZED");
+        }
+
+        @Test
+        void the401SaysHowToAuthenticate() throws Exception {
+            assertThat(send(get(BASE)).header("WWW-Authenticate")).isEqualTo("Bearer");
+        }
+    }
+
+    // ------------------------------------------------------ Error envelope and correlation
+
+    @Nested
+    class EnvelopeAndCorrelation {
+
+        @Test
+        void theEnvelopeRepeatsTheReceivedCorrelationIdAsTraceIdAndInTheHeader() throws Exception {
+            Reply reply = send(get(BASE).header("X-Correlation-Id", "contract-correlation-1"));
+
+            assertThat(reply.json().get("traceId").asText()).isEqualTo("contract-correlation-1");
+            assertThat(reply.header("X-Correlation-Id")).isEqualTo("contract-correlation-1");
+        }
+
+        @Test
+        void withoutACorrelationIdTheServiceGeneratesOne() throws Exception {
+            Reply reply = send(read(get(BASE)));
+
+            assertThat(reply.header("X-Correlation-Id")).isNotBlank();
+        }
+
+        @Test
+        void aMissingProfessionalIs404NotFound() throws Exception {
+            assertError(send(read(get(BASE + "/" + UUID.randomUUID()))), 404, "NOT_FOUND");
+        }
+
+        @Test
+        void anUnknownRouteIs404WithTheEnvelope() throws Exception {
+            assertError(send(read(get("/api/unknown-route"))), 404, "NOT_FOUND");
+        }
+
+        @Test
+        void theRemovedSpecialtyCatalogIs404() throws Exception {
+            assertError(send(read(get("/api/specialties"))), 404, "NOT_FOUND");
+        }
+
+        @Test
+        void anErrorNeverCarriesTheFrameworkFields() throws Exception {
+            JsonNode error = send(read(get(BASE + "/" + UUID.randomUUID()))).json();
+
+            assertThat(error.has("timestamp")).isFalse();
+            assertThat(error.has("path")).isFalse();
+            assertThat(error.has("trace")).isFalse();
+        }
+    }
+
+    // ------------------------------------------------------------------ Representation
+
+    @Nested
+    class Representation {
+
+        @Test
+        void aProfessionalIsCamelCaseWithUuidsAndTheContractEnums() throws Exception {
+            Professional stored = seeded.get(0);
+
+            Reply reply = send(read(get(BASE + "/" + stored.getId())));
+
+            assertThat(reply.status()).isEqualTo(200);
+            JsonNode professional = reply.json();
+            assertThat(professional.get("id").asText()).isEqualTo(stored.getId().toString());
+            assertThat(professional.get("identityUserId").asText()).isEqualTo(stored.getIdentityUserId().toString());
+            assertThat(professional.get("licenseNumber").asText()).isEqualTo(stored.getLicenseNumber());
+            assertThat(professional.get("yearsExperience").isInt()).isTrue();
+            assertThat(professional.get("professionalType").asText()).isEqualTo("GENERAL_PRACTITIONER");
+            assertThat(professional.get("status").asText()).isEqualTo("ACTIVE");
+            assertThat(professional.has("specialtyId")).isFalse();
+        }
+    }
+
+    // ---------------------------------------------------------------------- Bounded list
+
+    @Nested
+    class BoundedList {
+
+        @Test
+        void theListIsDataAndMetaWithAtMostLimitItems() throws Exception {
+            Reply reply = send(read(get(BASE + "?page=1&limit=2")));
+
+            assertThat(reply.status()).isEqualTo(200);
+            assertThat(reply.json().get("data").size()).isEqualTo(2);
+            JsonNode meta = reply.json().get("meta");
+            assertThat(meta.get("page").asInt()).isEqualTo(1);
+            assertThat(meta.get("limit").asInt()).isEqualTo(2);
+            assertThat(meta.get("total").asInt()).isEqualTo(3);
+            assertThat(meta.get("totalPages").asInt()).isEqualTo(2);
+        }
+
+        @Test
+        void withoutLimitTwentyAreUsed() throws Exception {
+            assertThat(send(read(get(BASE))).json().get("meta").get("limit").asInt()).isEqualTo(20);
+        }
+
+        @Test
+        void pagesDoNotOverlapAndFollowTheLicenseOrder() throws Exception {
+            List<String> licenses = new ArrayList<>();
+            for (int page = 1; page <= 3; page++) {
+                send(read(get(BASE + "?limit=1&page=" + page))).json().get("data")
+                        .forEach(professional -> licenses.add(professional.get("licenseNumber").asText()));
+            }
+
+            assertThat(licenses).containsExactly("CT-0001", "CT-0002", "CT-0003");
+        }
+
+        @Test
+        void aPagePastTheEndIsEmptyButKeepsTheTotal() throws Exception {
+            Reply reply = send(read(get(BASE + "?page=9&limit=2")));
+
+            assertThat(reply.json().get("data").size()).isZero();
+            assertThat(reply.json().get("meta").get("total").asInt()).isEqualTo(3);
+        }
+
+        @Test
+        void aPageOrLimitOutOfRangeIs400() throws Exception {
+            for (String query : List.of("?page=0", "?limit=0", "?limit=101", "?page=abc")) {
+                assertError(send(read(get(BASE + query))), 400, "VALIDATION_ERROR");
+            }
+        }
+
+        @Test
+        void aMalformedIdIs400ValidationError() throws Exception {
+            assertError(send(read(get(BASE + "/not-a-uuid"))), 400, "VALIDATION_ERROR");
+        }
+    }
+
+    // ------------------------------------------------------------------------- helpers
+
+    private record Reply(int status, Map<String, List<String>> headers, String body, JsonNode json) {
+
+        String header(String name) {
+            return headers.entrySet().stream().filter(entry -> entry.getKey().equalsIgnoreCase(name))
+                    .map(entry -> entry.getValue().get(0)).findFirst().orElse(null);
+        }
+    }
+
+    private static String payload(String subject, String role, long secondsFromNow) {
+        long exp = java.time.Instant.now().getEpochSecond() + secondsFromNow;
+        return "{\"sub\":\"" + subject + "\",\"role\":\"" + role + "\",\"exp\":" + exp + "}";
+    }
+
+    private HttpRequest.Builder get(String path) {
+        return HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).GET();
+    }
+
+    /** Any authenticated caller reads professionals; a patient is the least privileged one. */
+    private HttpRequest.Builder read(HttpRequest.Builder request) {
+        return request.header("Authorization", TestTokens.bearer(reader, "PATIENT"));
+    }
+
+    /**
+     * Sends the request and, for a contract route, checks the response against the published
+     * contract: status code, body schema and headers of the operation.
+     */
+    private static Reply send(HttpRequest.Builder builder) throws IOException, InterruptedException {
+        HttpRequest request = builder.build();
+        HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+        JsonNode json = response.body().isBlank() ? JSON.nullNode() : JSON.readTree(response.body());
+        String path = request.uri().getPath();
+        if (path.startsWith(BASE)) {
+            SimpleResponse.Builder contractResponse = SimpleResponse.Builder.status(response.statusCode())
+                    .withBody(response.body());
+            response.headers().map().forEach((name, values) -> contractResponse.withHeader(name, values));
+            ValidationReport report = CONTRACT.validateResponse(path.equals(BASE) ? BASE + "/" : path,
+                    Request.Method.valueOf(request.method()), contractResponse.build());
+            assertThat(report.getMessages()).as("%s %s against professional-service.yaml", request.method(), path)
+                    .isEmpty();
+        }
+        return new Reply(response.statusCode(), response.headers().map(), response.body(), json);
+    }
+
+    private static void assertError(Reply reply, int status, String code) {
+        assertThat(reply.status()).as(reply.body()).isEqualTo(status);
+        assertThat(reply.json().get("error").asText()).isEqualTo(code);
+        assertThat(reply.json().get("message").asText()).isNotBlank();
+        assertThat(reply.json().get("traceId").asText()).isNotBlank();
+    }
+}
