@@ -2,12 +2,9 @@ package com.telemed.professionalmanagement.adapters.persistence.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
@@ -31,22 +28,26 @@ public class ProfessionalEntity {
     @Column(name = "license_number", nullable = false, unique = true, length = 80)
     private String licenseNumber;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "specialty_id", nullable = false)
-    private SpecialtyEntity specialty;
-
     @Column(name = "years_experience", nullable = false)
     private Integer yearsExperience;
+
+    @Column(name = "professional_type", nullable = false, length = 40)
+    private String professionalType;
+
+    @Column(name = "status", nullable = false, length = 20)
+    private String status;
 
     protected ProfessionalEntity() {
     }
 
-    public ProfessionalEntity(Long id, Long identityUserId, String licenseNumber, SpecialtyEntity specialty, Integer yearsExperience) {
+    public ProfessionalEntity(Long id, Long identityUserId, String licenseNumber, Integer yearsExperience,
+                              String professionalType, String status) {
         this.id = id;
         this.identityUserId = identityUserId;
         this.licenseNumber = licenseNumber;
-        this.specialty = specialty;
         this.yearsExperience = yearsExperience;
+        this.professionalType = professionalType;
+        this.status = status;
     }
 
     public Long getId() {
@@ -73,19 +74,27 @@ public class ProfessionalEntity {
         this.licenseNumber = licenseNumber;
     }
 
-    public SpecialtyEntity getSpecialty() {
-        return specialty;
-    }
-
-    public void setSpecialty(SpecialtyEntity specialty) {
-        this.specialty = specialty;
-    }
-
     public Integer getYearsExperience() {
         return yearsExperience;
     }
 
     public void setYearsExperience(Integer yearsExperience) {
         this.yearsExperience = yearsExperience;
+    }
+
+    public String getProfessionalType() {
+        return professionalType;
+    }
+
+    public void setProfessionalType(String professionalType) {
+        this.professionalType = professionalType;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

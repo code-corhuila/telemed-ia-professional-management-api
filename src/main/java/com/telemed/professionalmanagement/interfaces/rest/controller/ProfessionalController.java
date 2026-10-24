@@ -61,7 +61,6 @@ public class ProfessionalController {
         Professional professional = registerProfessionalUseCase.register(AuthFilter.currentCaller(http), new RegisterProfessionalCommand(
                 request.identityUserId(),
                 request.licenseNumber(),
-                request.specialtyId(),
                 request.yearsExperience()
         ));
 

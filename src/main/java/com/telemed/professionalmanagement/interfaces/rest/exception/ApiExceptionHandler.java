@@ -19,10 +19,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import com.telemed.professionalmanagement.application.port.in.AccessDeniedException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
-import com.telemed.professionalmanagement.domain.DuplicateSpecialtyNameException;
 import com.telemed.professionalmanagement.domain.InvalidBusinessDataException;
 import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
-import com.telemed.professionalmanagement.domain.SpecialtyNotFoundException;
 import com.telemed.professionalmanagement.interfaces.rest.correlation.CorrelationFilter;
 import com.telemed.professionalmanagement.interfaces.rest.exception.ApiError.FieldDetail;
 
@@ -78,13 +76,12 @@ public class ApiExceptionHandler {
         return respond(403, ApiError.forStatus(403, trace(request)));
     }
 
-    @ExceptionHandler({ProfessionalNotFoundException.class, SpecialtyNotFoundException.class})
+    @ExceptionHandler(ProfessionalNotFoundException.class)
     ResponseEntity<ApiError> notFound(RuntimeException ex, HttpServletRequest request) {
         return respond(404, ApiError.forStatus(404, trace(request)));
     }
 
-    @ExceptionHandler({DuplicateProfessionalIdentityException.class, DuplicateProfessionalLicenseException.class,
-            DuplicateSpecialtyNameException.class})
+    @ExceptionHandler({DuplicateProfessionalIdentityException.class, DuplicateProfessionalLicenseException.class})
     ResponseEntity<ApiError> duplicate(RuntimeException ex, HttpServletRequest request) {
         return respond(409, ApiError.of(ApiError.CONFLICT, ex.getMessage(), trace(request)));
     }
