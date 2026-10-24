@@ -67,7 +67,13 @@ paths:
         When registering the profile, the system initializes its status as `ACTIVE`
         and its `professionalType` as `GENERAL_PRACTITIONER` (DEC-005: every
         professional is a general practitioner; there is no specialty catalog).
-        Neither is sent in this request.
+        Neither is sent in this request. The account is created in the identity
+        domain, through its API, in the same operation (DEC-003).
+
+        - First request with a new `Idempotency-Key`: `201` with `Location`.
+        - Same key and same body: `200` with the same professional; no second
+          account or profile is created.
+        - Same key with a different body: `422 BUSINESS_RULE_VIOLATION`.
       tags: [Admin]
       security:
         - bearerAuth: []
@@ -100,6 +106,18 @@ paths:
       responses:
         '201':
           description: Professional registered with profile status `ACTIVE`
+          headers:
+            Location:
+              description: URI of the registered professional
+              schema:
+                type: string
+                example: /api/v1/professionals/6f178b1a-9c0d-4c23-96ad-1e8da3b2ef6d
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/Professional'
+        '200':
+          description: Idempotent repetition; returns the professional already registered
           content:
             application/json:
               schema:
@@ -111,11 +129,15 @@ paths:
         '403':
           $ref: './_shared.yaml#/components/responses/Forbidden'
         '409':
-          description: Email o documento ya registrado
+          description: E-mail, identity document or license number already registered
           content:
             application/json:
               schema:
                 $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '422':
+          $ref: './_shared.yaml#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: './_shared.yaml#/components/responses/ServiceUnavailable'
 
 components:
   securitySchemes:

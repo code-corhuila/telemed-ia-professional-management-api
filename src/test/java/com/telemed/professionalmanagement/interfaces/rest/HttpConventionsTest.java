@@ -104,7 +104,7 @@ class HttpConventionsTest {
         HttpHeaders headers = correlated("trace-pm-0002");
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        ResponseEntity<Map<String, Object>> response = restTemplate.exchange("/api/professionals", HttpMethod.POST,
+        ResponseEntity<Map<String, Object>> response = restTemplate.exchange("/api/professionals/admin/register", HttpMethod.POST,
                 new HttpEntity<>("{bad json", headers), JSON);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);

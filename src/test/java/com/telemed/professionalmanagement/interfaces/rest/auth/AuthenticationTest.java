@@ -31,7 +31,8 @@ class AuthenticationTest {
 
     private static final ParameterizedTypeReference<Map<String, Object>> JSON = new ParameterizedTypeReference<>() { };
     private static final String VALID_PROFESSIONAL =
-            "{\"identityUserId\":\"c1000000-0000-4000-8000-000000000099\",\"licenseNumber\":\"AUTH-123\",\"yearsExperience\":3}";
+            "{\"fullName\":\"Ana Gómez\",\"email\":\"ana@telemed.test\",\"identityDocument\":\"1075000001\","
+                    + "\"password\":\"temporary-pass-1\",\"licenseNumber\":\"AUTH-123\",\"yearsExperience\":3}";
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -53,7 +54,8 @@ class AuthenticationTest {
         HttpHeaders headers = new HttpHeaders();
         headers.set(HttpHeaders.AUTHORIZATION, authorization);
         headers.setContentType(MediaType.APPLICATION_JSON);
-        return restTemplate.exchange("/api/professionals", HttpMethod.POST,
+        headers.set("Idempotency-Key", "auth-register-0001");
+        return restTemplate.exchange("/api/professionals/admin/register", HttpMethod.POST,
                 new HttpEntity<>(VALID_PROFESSIONAL, headers), JSON);
     }
 
@@ -107,6 +109,8 @@ class AuthenticationTest {
 
         assertThat(patient.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(patient.getBody()).containsEntry("error", "FORBIDDEN").containsKey("traceId");
-        assertThat(register(TestTokens.bearer("admin-1", "ADMIN")).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        // Past authorization, the registration stops at identity, which does not create accounts yet.
+        assertThat(register(TestTokens.bearer("admin-1", "ADMIN")).getStatusCode())
+                .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
     }
 }
