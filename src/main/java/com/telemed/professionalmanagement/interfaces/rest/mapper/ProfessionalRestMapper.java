@@ -12,8 +12,9 @@ public class ProfessionalRestMapper {
                 professional.getId(),
                 professional.getIdentityUserId(),
                 professional.getLicenseNumber(),
-                professional.getSpecialtyId(),
-                professional.getYearsExperience()
+                professional.getYearsExperience(),
+                professional.getProfessionalType().name(),
+                professional.getStatus().name()
         );
     }
 }
