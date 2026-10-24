@@ -119,7 +119,7 @@ docker compose -f deploy/compose.yml up -d --build
 | `GET /health` | Liveness, without a token (Anexo C). | — | `200 OK` `{"status":"UP"}` | — |
 | `GET /api/professionals?page=&limit=` | List professionals by license number, one page at a time (`page` from 1, `limit` 1 to 100, default 20). | — | `200 OK` `{data, meta: {page, limit, total, totalPages}}` | `400 Bad Request` (page or limit out of range) |
 | `GET /api/professionals/{professionalId}` | Get a professional by its UUID. | — | `200 OK` | `400 Bad Request` (not a UUID), `404 Not Found` |
-| `POST /api/professionals` | Register a professional. | `identityUserId` (UUID), `licenseNumber` (string), `yearsExperience` (integer) | `201 Created`, an `ACTIVE` general practitioner | `400 Bad Request`, `409 Conflict` (duplicate identity or license) |
+| `POST /api/professionals/admin/register` | Register a professional: the account in the identity domain and an `ACTIVE` general practitioner profile (DEC-003). `ADMIN` only. | header `Idempotency-Key` (8 to 128 characters); `fullName`, `email`, `identityDocument`, `password` (8 or more), `licenseNumber`, `yearsExperience` | `201 Created` with `Location`; `200 OK` with the same professional when the key is repeated | `400` (each invalid field, the header included), `403`, `409` (e-mail, document or license already registered), `422` (key reused with another body), `503` (identity unavailable) |
 
 ## Authentication
 
@@ -129,6 +129,9 @@ key (`JWT_PUBLIC_KEY` or `JWT_PUBLIC_KEY_FILE`), `exp` with 30 s of clock skew, 
 from the `role` claim (or a `roles` array). Any failure is `401 UNAUTHORIZED`. Registering a
 professional is administrative (DEC-003): the use case answers
 `403 FORBIDDEN` to any caller without the `ADMIN` role. Any authenticated caller reads professionals.
+
+The identity service does not expose account creation to other services yet, so a registration
+answers `503 SERVICE_UNAVAILABLE` and stores nothing until it does (`UnavailableIdentityAccounts`).
 
 ## Errors and correlation
 
