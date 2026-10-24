@@ -95,12 +95,10 @@ class AuthenticationTest {
 
     @Test
     void anyAuthenticatedUserReadsTheProfessionals() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.AUTHORIZATION, TestTokens.bearer("patient-1", "PATIENT"));
+        ResponseEntity<Map<String, Object>> response = list(TestTokens.bearer("patient-1", "PATIENT"));
 
-        // The list is still a bare array; the paginated {data, meta} comes with the contract routes.
-        assertThat(restTemplate.exchange("/api/professionals", HttpMethod.GET, new HttpEntity<>(headers), String.class)
-                .getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).containsKeys("data", "meta");
     }
 
     @Test
