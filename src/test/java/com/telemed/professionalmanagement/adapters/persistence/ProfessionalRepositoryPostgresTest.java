@@ -139,6 +139,19 @@ class ProfessionalRepositoryPostgresTest {
     }
 
     @Test
+    void aStatusChangeUpdatesTheSameRow() {
+        Professional saved = adapter.save(Professional.register(UUID.randomUUID(), license(), 2));
+        long rows = jdbc.queryForObject("SELECT count(*) FROM professional_management.professional", Long.class);
+
+        adapter.save(saved.withStatus(ProfessionalStatus.INACTIVE));
+
+        assertThat(jdbc.queryForObject("SELECT status FROM professional_management.professional WHERE id = ?",
+                String.class, saved.getId())).isEqualTo("INACTIVE");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM professional_management.professional", Long.class))
+                .isEqualTo(rows);
+    }
+
+    @Test
     void theSchemaOnlyAcceptsGeneralPractitioners() {
         assertThatThrownBy(() -> jdbc.update("""
                 INSERT INTO professional_management.professional
