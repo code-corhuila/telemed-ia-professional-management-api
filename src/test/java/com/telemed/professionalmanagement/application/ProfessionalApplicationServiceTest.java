@@ -23,6 +23,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.telemed.professionalmanagement.application.command.RegisterProfessionalCommand;
 import com.telemed.professionalmanagement.application.port.in.AccessDeniedException;
 import com.telemed.professionalmanagement.application.port.in.Caller;
+import com.telemed.professionalmanagement.application.port.in.Page;
+import com.telemed.professionalmanagement.application.port.in.PageRequest;
 import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
 import com.telemed.professionalmanagement.application.service.ProfessionalApplicationService;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
@@ -121,12 +123,19 @@ class ProfessionalApplicationServiceTest {
     }
 
     @Test
-    void shouldListProfessionalsSuccessfully() {
-        when(professionalRepositoryPort.findAll()).thenReturn(List.of(
+    void theListReturnsTheRequestedPageOfTheRepository() {
+        PageRequest request = new PageRequest(2, 2);
+        Page<Professional> stored = Page.of(List.of(
                 stored(UUID.randomUUID(), ACCOUNT, "ABC-123", 8),
-                stored(UUID.randomUUID(), OTHER_ACCOUNT, "DEF-456", 10)));
+                stored(UUID.randomUUID(), OTHER_ACCOUNT, "DEF-456", 10)), request, 5);
+        when(professionalRepositoryPort.findPage(request)).thenReturn(stored);
 
-        assertEquals(2, professionalApplicationService.listAll().size());
+        Page<Professional> page = professionalApplicationService.list(request);
+
+        assertEquals(2, page.items().size());
+        assertEquals(2, page.page());
+        assertEquals(5, page.total());
+        assertEquals(3, page.totalPages());
     }
 
     @Test

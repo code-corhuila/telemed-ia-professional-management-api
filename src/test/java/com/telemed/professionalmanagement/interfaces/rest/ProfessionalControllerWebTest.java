@@ -168,13 +168,57 @@ class ProfessionalControllerWebTest {
 
     @Test
     void shouldListProfessionals() throws Exception {
-        when(listProfessionalsUseCase.listAll()).thenReturn(List.of(
+        when(listProfessionalsUseCase.list(new com.telemed.professionalmanagement.application.port.in.PageRequest(1, 20)))
+                .thenReturn(com.telemed.professionalmanagement.application.port.in.Page.of(List.of(
                 new Professional(UUID.randomUUID(), UUID.randomUUID(), "A1", 5, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE),
                 new Professional(UUID.randomUUID(), UUID.randomUUID(), "B2", 6, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE)
-        ));
+        ), new com.telemed.professionalmanagement.application.port.in.PageRequest(1, 20), 42));
 
         mockMvc.perform(get("/api/professionals").header("Authorization", ADMIN_TOKEN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2));
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].licenseNumber").value("A1"))
+                .andExpect(jsonPath("$.meta.page").value(1))
+                .andExpect(jsonPath("$.meta.limit").value(20))
+                .andExpect(jsonPath("$.meta.total").value(42))
+                .andExpect(jsonPath("$.meta.totalPages").value(3));
+    }
+
+    @Test
+    void theListPassesTheRequestedPageToTheUseCase() throws Exception {
+        com.telemed.professionalmanagement.application.port.in.PageRequest request =
+                new com.telemed.professionalmanagement.application.port.in.PageRequest(3, 100);
+        when(listProfessionalsUseCase.list(request))
+                .thenReturn(com.telemed.professionalmanagement.application.port.in.Page.of(List.of(), request, 0));
+
+        mockMvc.perform(get("/api/professionals?page=3&limit=100").header("Authorization", ADMIN_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0))
+                .andExpect(jsonPath("$.meta.page").value(3))
+                .andExpect(jsonPath("$.meta.limit").value(100))
+                .andExpect(jsonPath("$.meta.total").value(0))
+                .andExpect(jsonPath("$.meta.totalPages").value(0));
+    }
+
+    @Test
+    void aPageOutOfRangeIsAValidationErrorPerField() throws Exception {
+        mockMvc.perform(get("/api/professionals?page=0&limit=101").header("Authorization", ADMIN_TOKEN)
+                        .header("X-Correlation-Id", "trace-page"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.details[*].field").value(org.hamcrest.Matchers.containsInAnyOrder("page", "limit")))
+                .andExpect(jsonPath("$.traceId").value("trace-page"));
+        mockMvc.perform(get("/api/professionals?limit=0").header("Authorization", ADMIN_TOKEN))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[0].field").value("limit"));
+        org.mockito.Mockito.verifyNoInteractions(listProfessionalsUseCase);
+    }
+
+    @Test
+    void aPageThatIsNotAnIntegerIsAValidationError() throws Exception {
+        mockMvc.perform(get("/api/professionals?page=abc").header("Authorization", ADMIN_TOKEN))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.details[0].field").value("page"));
     }
 }
