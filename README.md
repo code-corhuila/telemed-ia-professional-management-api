@@ -99,6 +99,19 @@ mvn spring-boot:run
 
 The application listens on port 8080 by default or on `SERVER_PORT` if set.
 
+## Run in the platform
+
+[`deploy/compose.yml`](deploy/compose.yml) declares the service `professional-management-api` on the
+shared `platform` network, listening on 8080. It uses `expose`, not `ports`: only the API Gateway is
+published to the host (Anexo G), which reaches the service as `http://professional-management-api:8080`.
+It is the file `telemed-ia-infra-postgres` includes for this service (Anexo G). `JWT_PUBLIC_KEY` and
+`PROFESSIONAL_MANAGEMENT_APP_PASSWORD` come from its environment file; the database is the shared
+`postgres` service, with the migrations of `telemed-ia-professional-management-db` applied.
+
+```bash
+docker compose -f deploy/compose.yml up -d --build
+```
+
 ## REST endpoints
 
 | Method and route | Purpose | Request body | Successful response | Relevant errors |
