@@ -6,9 +6,11 @@ import com.telemed.professionalmanagement.application.port.in.CreateSpecialtyUse
 import com.telemed.professionalmanagement.application.port.in.ListSpecialtiesUseCase;
 import com.telemed.professionalmanagement.application.port.in.UpdateSpecialtyUseCase;
 import com.telemed.professionalmanagement.domain.Specialty;
+import com.telemed.professionalmanagement.interfaces.rest.auth.AuthFilter;
 import com.telemed.professionalmanagement.interfaces.rest.dto.SpecialtyRequest;
 import com.telemed.professionalmanagement.interfaces.rest.dto.SpecialtyResponse;
 import com.telemed.professionalmanagement.interfaces.rest.mapper.SpecialtyRestMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -50,15 +52,17 @@ public class SpecialtyController {
     }
 
     @PostMapping("/specialties")
-    public ResponseEntity<SpecialtyResponse> createSpecialty(@Valid @RequestBody SpecialtyRequest request) {
-        Specialty specialty = createSpecialtyUseCase.create(new CreateSpecialtyCommand(request.name(), request.description()));
+    public ResponseEntity<SpecialtyResponse> createSpecialty(@Valid @RequestBody SpecialtyRequest request,
+                                                             HttpServletRequest http) {
+        Specialty specialty = createSpecialtyUseCase.create(AuthFilter.currentCaller(http), new CreateSpecialtyCommand(request.name(), request.description()));
         return ResponseEntity.status(HttpStatus.CREATED).body(specialtyRestMapper.toResponse(specialty));
     }
 
     @PutMapping("/specialties/{specialtyId}")
     public ResponseEntity<SpecialtyResponse> updateSpecialty(@PathVariable Long specialtyId,
-                                                           @Valid @RequestBody SpecialtyRequest request) {
-        Specialty specialty = updateSpecialtyUseCase.update(specialtyId, new UpdateSpecialtyCommand(request.name(), request.description()));
+                                                           @Valid @RequestBody SpecialtyRequest request,
+                                                           HttpServletRequest http) {
+        Specialty specialty = updateSpecialtyUseCase.update(AuthFilter.currentCaller(http), specialtyId, new UpdateSpecialtyCommand(request.name(), request.description()));
         return ResponseEntity.ok(specialtyRestMapper.toResponse(specialty));
     }
 }

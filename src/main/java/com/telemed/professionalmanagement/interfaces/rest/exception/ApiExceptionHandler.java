@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import com.telemed.professionalmanagement.application.port.in.AccessDeniedException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.DuplicateSpecialtyNameException;
@@ -70,6 +71,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(InvalidBusinessDataException.class)
     ResponseEntity<ApiError> ruleViolation(InvalidBusinessDataException ex, HttpServletRequest request) {
         return respond(422, ApiError.of(ApiError.BUSINESS_RULE_VIOLATION, ex.getMessage(), trace(request)));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<ApiError> accessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        return respond(403, ApiError.forStatus(403, trace(request)));
     }
 
     @ExceptionHandler({ProfessionalNotFoundException.class, SpecialtyNotFoundException.class})
