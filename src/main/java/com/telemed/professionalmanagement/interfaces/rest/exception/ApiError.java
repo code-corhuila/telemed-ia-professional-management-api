@@ -19,6 +19,7 @@ public record ApiError(String error, String message, List<FieldDetail> details, 
     public static final String CONFLICT = "CONFLICT";
     public static final String BUSINESS_RULE_VIOLATION = "BUSINESS_RULE_VIOLATION";
     public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
+    public static final String SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE";
 
     /** One invalid field, path variable, query parameter or header. */
     public record FieldDetail(String field, String message) {
@@ -48,6 +49,7 @@ public record ApiError(String error, String message, List<FieldDetail> details, 
             case 409 -> of(CONFLICT, "the request conflicts with an existing resource", traceId);
             case 415 -> of("UNSUPPORTED_MEDIA_TYPE", "the request content type is not supported", traceId);
             case 422 -> of(BUSINESS_RULE_VIOLATION, "the request violates a business rule", traceId);
+            case 503 -> of(SERVICE_UNAVAILABLE, "a required service is unavailable, try again later", traceId);
             default -> status >= 400 && status < 500
                     ? of(VALIDATION_ERROR, "the request is not valid", traceId)
                     : of(INTERNAL_ERROR, "an unexpected error occurred", traceId);
