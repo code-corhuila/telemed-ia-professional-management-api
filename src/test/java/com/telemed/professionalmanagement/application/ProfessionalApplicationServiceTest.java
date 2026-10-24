@@ -1,84 +1,112 @@
 package com.telemed.professionalmanagement.application;
 
-import com.telemed.professionalmanagement.application.command.RegisterProfessionalCommand;
-import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
-import com.telemed.professionalmanagement.application.port.out.SpecialtyRepositoryPort;
-import com.telemed.professionalmanagement.application.service.ProfessionalApplicationService;
-import com.telemed.professionalmanagement.domain.InvalidBusinessDataException;
-import com.telemed.professionalmanagement.domain.Professional;
-import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
-import com.telemed.professionalmanagement.domain.Specialty;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import com.telemed.professionalmanagement.application.command.RegisterProfessionalCommand;
+import com.telemed.professionalmanagement.application.port.in.AccessDeniedException;
+import com.telemed.professionalmanagement.application.port.in.Caller;
+import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
+import com.telemed.professionalmanagement.application.service.ProfessionalApplicationService;
+import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
+import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
+import com.telemed.professionalmanagement.domain.InvalidBusinessDataException;
+import com.telemed.professionalmanagement.domain.Professional;
+import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
+import com.telemed.professionalmanagement.domain.ProfessionalStatus;
+import com.telemed.professionalmanagement.domain.ProfessionalType;
 
 @ExtendWith(MockitoExtension.class)
 class ProfessionalApplicationServiceTest {
 
-    private static final com.telemed.professionalmanagement.application.port.in.Caller ADMIN =
-            new com.telemed.professionalmanagement.application.port.in.Caller("admin-1",
-                    java.util.Set.of(com.telemed.professionalmanagement.application.port.in.Caller.ADMIN));
+    private static final Caller ADMIN = new Caller("admin-1", Set.of(Caller.ADMIN));
 
     @Mock
     private ProfessionalRepositoryPort professionalRepositoryPort;
 
-    @Mock
-    private SpecialtyRepositoryPort specialtyRepositoryPort;
-
     @InjectMocks
     private ProfessionalApplicationService professionalApplicationService;
 
+    private static Professional stored(Long id, Long identityUserId, String licenseNumber, int yearsExperience) {
+        return new Professional(id, identityUserId, licenseNumber, yearsExperience,
+                ProfessionalType.GENERAL_PRACTITIONER, ProfessionalStatus.ACTIVE);
+    }
+
     @Test
-    void shouldRegisterProfessionalSuccessfully() {
-        Specialty specialty = new Specialty(9L, "Cardiology", "Heart health");
-        when(specialtyRepositoryPort.findById(9L)).thenReturn(Optional.of(specialty));
+    void aRegisteredProfessionalIsAnActiveGeneralPractitioner() {
         when(professionalRepositoryPort.existsByIdentityUserId(100L)).thenReturn(false);
         when(professionalRepositoryPort.existsByLicenseNumber("ABC-123")).thenReturn(false);
-        when(professionalRepositoryPort.save(any(Professional.class)))
-                .thenAnswer(invocation -> new Professional(7L, 100L, "ABC-123", 9L, 12));
+        when(professionalRepositoryPort.save(any(Professional.class))).thenAnswer(invocation -> {
+            Professional candidate = invocation.getArgument(0);
+            return new Professional(7L, candidate.getIdentityUserId(), candidate.getLicenseNumber(),
+                    candidate.getYearsExperience(), candidate.getProfessionalType(), candidate.getStatus());
+        });
 
-        Professional professional = professionalApplicationService.register(ADMIN, 
-                new RegisterProfessionalCommand(100L, "ABC-123", 9L, 12)
-        );
+        Professional professional = professionalApplicationService.register(ADMIN,
+                new RegisterProfessionalCommand(100L, "ABC-123", 12));
 
+        ArgumentCaptor<Professional> saved = ArgumentCaptor.forClass(Professional.class);
+        verify(professionalRepositoryPort).save(saved.capture());
+        assertNull(saved.getValue().getId());
+        assertEquals(ProfessionalType.GENERAL_PRACTITIONER, saved.getValue().getProfessionalType());
+        assertEquals(ProfessionalStatus.ACTIVE, saved.getValue().getStatus());
         assertEquals(7L, professional.getId());
         assertEquals(100L, professional.getIdentityUserId());
         assertEquals("ABC-123", professional.getLicenseNumber());
-        assertEquals(9L, professional.getSpecialtyId());
         assertEquals(12, professional.getYearsExperience());
     }
 
     @Test
-    void shouldAcceptLicenseNumberUpTo80Characters() {
-        String licenseNumber = "A".repeat(80);
+    void aDuplicateAccountOrLicenseIsAConflict() {
+        when(professionalRepositoryPort.existsByIdentityUserId(100L)).thenReturn(true);
+        assertThrows(DuplicateProfessionalIdentityException.class, () -> professionalApplicationService.register(ADMIN,
+                new RegisterProfessionalCommand(100L, "ABC-123", 12)));
 
-        Professional professional = new Professional(1L, 100L, licenseNumber, 9L, 5);
+        when(professionalRepositoryPort.existsByIdentityUserId(101L)).thenReturn(false);
+        when(professionalRepositoryPort.existsByLicenseNumber("ABC-123")).thenReturn(true);
+        assertThrows(DuplicateProfessionalLicenseException.class, () -> professionalApplicationService.register(ADMIN,
+                new RegisterProfessionalCommand(101L, "ABC-123", 12)));
+    }
+
+    @Test
+    void shouldAcceptLicenseNumberUpTo80Characters() {
+        Professional professional = Professional.register(100L, "A".repeat(80), 5);
 
         assertEquals(80, professional.getLicenseNumber().length());
     }
 
     @Test
     void shouldRejectLicenseNumberLongerThan80Characters() {
-        String licenseNumber = "A".repeat(81);
-
-        assertThrows(InvalidBusinessDataException.class,
-                () -> new Professional(1L, 100L, licenseNumber, 9L, 5));
+        assertThrows(InvalidBusinessDataException.class, () -> Professional.register(100L, "A".repeat(81), 5));
     }
 
     @Test
     void shouldRejectInvalidYearsExperience() {
+        assertThrows(InvalidBusinessDataException.class, () -> Professional.register(100L, "ABC-123", -1));
+    }
+
+    @Test
+    void aStoredProfessionalNeedsItsTypeAndStatus() {
         assertThrows(InvalidBusinessDataException.class,
-                () -> new Professional(1L, 100L, "ABC-123", 9L, -1));
+                () -> new Professional(1L, 100L, "ABC-123", 5, null, ProfessionalStatus.ACTIVE));
+        assertThrows(InvalidBusinessDataException.class,
+                () -> new Professional(1L, 100L, "ABC-123", 5, ProfessionalType.GENERAL_PRACTITIONER, null));
     }
 
     @Test
@@ -90,23 +118,18 @@ class ProfessionalApplicationServiceTest {
     @Test
     void shouldListProfessionalsSuccessfully() {
         when(professionalRepositoryPort.findAll()).thenReturn(List.of(
-                new Professional(1L, 100L, "ABC-123", 9L, 8),
-                new Professional(2L, 101L, "DEF-456", 10L, 10)
-        ));
+                stored(1L, 100L, "ABC-123", 8),
+                stored(2L, 101L, "DEF-456", 10)));
 
-        List<Professional> professionals = professionalApplicationService.listAll();
-        assertEquals(2, professionals.size());
+        assertEquals(2, professionalApplicationService.listAll().size());
     }
 
     @Test
     void onlyAnAdministratorRegistersAProfessional() {
-        com.telemed.professionalmanagement.application.port.in.Caller patient =
-                new com.telemed.professionalmanagement.application.port.in.Caller("patient-1", java.util.Set.of("PATIENT"));
+        Caller patient = new Caller("patient-1", Set.of("PATIENT"));
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-                com.telemed.professionalmanagement.application.port.in.AccessDeniedException.class,
-                () -> professionalApplicationService.register(patient,
-                        new RegisterProfessionalCommand(99L, "ABC-123", 7L, 12)));
-        org.mockito.Mockito.verifyNoInteractions(professionalRepositoryPort, specialtyRepositoryPort);
+        assertThrows(AccessDeniedException.class, () -> professionalApplicationService.register(patient,
+                new RegisterProfessionalCommand(99L, "ABC-123", 12)));
+        verifyNoInteractions(professionalRepositoryPort);
     }
 }

@@ -77,6 +77,12 @@ class HttpConventionsTest {
     }
 
     @Test
+    void theSpecialtyCatalogNoLongerExists() {
+        // DEC-005: every professional is a general practitioner; there is no catalog to read or change.
+        assertThat(get("/api/specialties", correlated("trace-pm-0005")).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void withoutTheHeaderTheServiceGeneratesOne() {
         ResponseEntity<Map<String, Object>> response = get("/api/no-such-route", authorized());
 
