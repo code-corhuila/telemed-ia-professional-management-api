@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.telemed.professionalmanagement.adapters.persistence.adapter.ProfessionalRegistrationAdapter;
+import com.telemed.professionalmanagement.adapters.persistence.adapter.ProfessionalRepositoryAdapter;
 import com.telemed.professionalmanagement.adapters.persistence.mapper.ProfessionalPersistenceMapper;
 import com.telemed.professionalmanagement.application.port.out.StoredRegistration;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
@@ -35,7 +36,8 @@ import com.telemed.professionalmanagement.domain.Professional;
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({ProfessionalRegistrationAdapter.class, ProfessionalPersistenceMapper.class})
+@Import({ProfessionalRegistrationAdapter.class, ProfessionalRepositoryAdapter.class,
+        ProfessionalPersistenceMapper.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @EnabledIfEnvironmentVariable(named = "TEST_DATABASE_URL", matches = ".+")
 class ProfessionalRegistrationPostgresTest {
