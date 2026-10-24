@@ -6,18 +6,22 @@ import com.telemed.professionalmanagement.adapters.persistence.entity.Profession
 import com.telemed.professionalmanagement.adapters.persistence.mapper.ProfessionalPersistenceMapper;
 import com.telemed.professionalmanagement.adapters.persistence.repository.ProfessionalJpaRepository;
 import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
+import com.telemed.professionalmanagement.application.port.in.Page;
+import com.telemed.professionalmanagement.application.port.in.PageRequest;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.Professional;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.Optional;
 
 @Component
 public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort {
+
+    private static final Sort BY_LICENSE = Sort.by("licenseNumber");
 
     private final ProfessionalJpaRepository professionalJpaRepository;
     private final ProfessionalPersistenceMapper mapper;
@@ -53,8 +57,10 @@ public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort
     }
 
     @Override
-    public List<Professional> findAll() {
-        return professionalJpaRepository.findAll().stream().map(mapper::toDomain).toList();
+    public Page<Professional> findPage(PageRequest page) {
+        org.springframework.data.domain.Page<ProfessionalEntity> found = professionalJpaRepository.findAll(
+                org.springframework.data.domain.PageRequest.of(page.page() - 1, page.limit(), BY_LICENSE));
+        return Page.of(found.getContent().stream().map(mapper::toDomain).toList(), page, found.getTotalElements());
     }
 
     @Override
