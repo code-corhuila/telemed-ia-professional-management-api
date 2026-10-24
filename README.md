@@ -104,6 +104,15 @@ The application listens on port 8080 by default or on `SERVER_PORT` if set.
 | `POST /api/specialties` | Create a specialty. | `name` (string), `description` (string or null) | `201 Created` | `400 Bad Request`, `409 Conflict` (duplicate name) |
 | `PUT /api/specialties/{specialtyId}` | Update a specialty. | `name` (string), `description` (string or null) | `200 OK` | `400 Bad Request`, `404 Not Found`, `409 Conflict` (duplicate name) |
 
+## Authentication
+
+Every route except `GET /health` requires `Authorization: Bearer <token>`, validated by the service
+itself (numeral 5.3.7): `alg` exactly `RS256`, the RSA signature with the identity service's public
+key (`JWT_PUBLIC_KEY` or `JWT_PUBLIC_KEY_FILE`), `exp` with 30 s of clock skew, and `sub`. Roles come
+from the `role` claim (or a `roles` array). Any failure is `401 UNAUTHORIZED`. Registering a
+professional and changing the catalog are administrative (DEC-003): the use cases answer
+`403 FORBIDDEN` to any caller without the `ADMIN` role. Any authenticated caller reads professionals.
+
 ## Errors and correlation
 
 Every error answers with the shared envelope of Anexo C, `{error, message, details?, traceId}`:
