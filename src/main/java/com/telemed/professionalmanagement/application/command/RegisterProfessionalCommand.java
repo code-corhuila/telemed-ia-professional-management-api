@@ -1,4 +1,6 @@
 package com.telemed.professionalmanagement.application.command;
 
-public record RegisterProfessionalCommand(Long identityUserId, String licenseNumber, Integer yearsExperience) {
+import java.util.UUID;
+
+public record RegisterProfessionalCommand(UUID identityUserId, String licenseNumber, Integer yearsExperience) {
 }
