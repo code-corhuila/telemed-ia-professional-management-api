@@ -26,14 +26,15 @@ Full policy: `00-governance/` in `telemed-ia-docs`.
 
 ## Purpose
 
-This service implements the Professional Management bounded context for TeleMed IA. It manages professionals and specialties as a dedicated API service, while keeping the database schema and ownership in the separate `telemed-ia-professional-management-db` repository.
+This service implements the Professional Management bounded context for TeleMed IA. It manages professional profiles as a dedicated API service, while keeping the database schema and ownership in the separate `telemed-ia-professional-management-db` repository.
 
 ## Bounded context
 
 Professional Management owns only the following business entities:
 
 - Professional
-- Specialty
+
+Every professional is a general practitioner (`professionalType` `GENERAL_PRACTITIONER`, DEC-005): there is no specialty catalog.
 
 This service does not create users, roles, sessions, passwords or JWTs. Those belong to the Identity & Access bounded context.
 
@@ -99,10 +100,7 @@ The application listens on port 8080 by default or on `SERVER_PORT` if set.
 | `GET /health` | Liveness, without a token (Anexo C). | — | `200 OK` `{"status":"UP"}` | — |
 | `GET /api/professionals` | List professionals. | — | `200 OK` | — |
 | `GET /api/professionals/{professionalId}` | Get a professional by ID. | — | `200 OK` | `404 Not Found` |
-| `POST /api/professionals` | Register a professional. | `identityUserId` (number), `licenseNumber` (string), `specialtyId` (number), `yearsExperience` (integer) | `201 Created` | `400 Bad Request`, `404 Not Found` (specialty), `409 Conflict` (duplicate identity or license) |
-| `GET /api/specialties` | List specialties. | — | `200 OK` | — |
-| `POST /api/specialties` | Create a specialty. | `name` (string), `description` (string or null) | `201 Created` | `400 Bad Request`, `409 Conflict` (duplicate name) |
-| `PUT /api/specialties/{specialtyId}` | Update a specialty. | `name` (string), `description` (string or null) | `200 OK` | `400 Bad Request`, `404 Not Found`, `409 Conflict` (duplicate name) |
+| `POST /api/professionals` | Register a professional. | `identityUserId` (number), `licenseNumber` (string), `yearsExperience` (integer) | `201 Created`, an `ACTIVE` general practitioner | `400 Bad Request`, `409 Conflict` (duplicate identity or license) |
 
 ## Authentication
 
@@ -110,7 +108,7 @@ Every route except `GET /health` requires `Authorization: Bearer <token>`, valid
 itself (numeral 5.3.7): `alg` exactly `RS256`, the RSA signature with the identity service's public
 key (`JWT_PUBLIC_KEY` or `JWT_PUBLIC_KEY_FILE`), `exp` with 30 s of clock skew, and `sub`. Roles come
 from the `role` claim (or a `roles` array). Any failure is `401 UNAUTHORIZED`. Registering a
-professional and changing the catalog are administrative (DEC-003): the use cases answer
+professional is administrative (DEC-003): the use case answers
 `403 FORBIDDEN` to any caller without the `ADMIN` role. Any authenticated caller reads professionals.
 
 ## Errors and correlation
