@@ -1,5 +1,7 @@
 package com.telemed.professionalmanagement.adapters.persistence.adapter;
 
+import java.util.UUID;
+
 import com.telemed.professionalmanagement.adapters.persistence.entity.ProfessionalEntity;
 import com.telemed.professionalmanagement.adapters.persistence.mapper.ProfessionalPersistenceMapper;
 import com.telemed.professionalmanagement.adapters.persistence.repository.ProfessionalJpaRepository;
@@ -31,7 +33,7 @@ public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort
         ProfessionalEntity entity = mapper.toEntity(professional);
         ProfessionalEntity saved;
         try {
-            saved = professionalJpaRepository.save(entity);
+            saved = professionalJpaRepository.saveAndFlush(entity);
         } catch (DataIntegrityViolationException exception) {
             String constraintName = findConstraintName(exception);
             if ("uq_professionals_identity_user_id".equals(constraintName)) {
@@ -46,7 +48,7 @@ public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort
     }
 
     @Override
-    public Optional<Professional> findById(Long professionalId) {
+    public Optional<Professional> findById(UUID professionalId) {
         return professionalJpaRepository.findById(professionalId).map(mapper::toDomain);
     }
 
@@ -56,7 +58,7 @@ public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort
     }
 
     @Override
-    public boolean existsByIdentityUserId(Long identityUserId) {
+    public boolean existsByIdentityUserId(UUID identityUserId) {
         return professionalJpaRepository.findByIdentityUserId(identityUserId).isPresent();
     }
 
