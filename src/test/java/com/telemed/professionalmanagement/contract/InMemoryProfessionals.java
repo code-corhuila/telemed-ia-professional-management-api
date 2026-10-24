@@ -27,6 +27,11 @@ class InMemoryProfessionals implements ProfessionalRepositoryPort, ProfessionalR
 
     @Override
     public synchronized Professional save(Professional professional) {
+        if (professional.getId() != null && rows.containsKey(professional.getId())) {
+            // An existing profile is updated in place, as the JPA adapter merges it.
+            rows.put(professional.getId(), professional);
+            return professional;
+        }
         if (existsByIdentityUserId(professional.getIdentityUserId())) {
             throw new DuplicateProfessionalIdentityException(professional.getIdentityUserId());
         }
