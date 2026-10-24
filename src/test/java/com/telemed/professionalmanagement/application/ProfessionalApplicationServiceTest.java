@@ -20,7 +20,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.telemed.professionalmanagement.application.command.RegisterProfessionalCommand;
 import com.telemed.professionalmanagement.application.port.in.AccessDeniedException;
 import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.Page;
