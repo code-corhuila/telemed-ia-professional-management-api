@@ -1,8 +1,9 @@
 package com.telemed.professionalmanagement.application.port.in;
 
 import com.telemed.professionalmanagement.domain.Professional;
-import java.util.List;
 
 public interface ListProfessionalsUseCase {
-    List<Professional> listAll();
+
+    /** Any authenticated caller reads the professionals, one bounded page at a time. */
+    Page<Professional> list(PageRequest page);
 }
