@@ -1,67 +1,122 @@
 package com.telemed.professionalmanagement.interfaces.rest.exception;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.ErrorResponseException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.DuplicateSpecialtyNameException;
 import com.telemed.professionalmanagement.domain.InvalidBusinessDataException;
 import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
 import com.telemed.professionalmanagement.domain.SpecialtyNotFoundException;
+import com.telemed.professionalmanagement.interfaces.rest.correlation.CorrelationFilter;
+import com.telemed.professionalmanagement.interfaces.rest.exception.ApiError.FieldDetail;
+
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.Instant;
-import java.util.stream.Collectors;
-
+/**
+ * The single place where errors become HTTP responses (Anexo C). The domain throws typed
+ * errors and does not know what a 409 is. Internal detail goes to the log only.
+ */
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiError> handleMethodArgumentNotValid(MethodArgumentNotValidException ex,
-                                                                HttpServletRequest request) {
-        String message = ex.getBindingResult().getFieldErrors().stream()
-                .map(FieldError::getDefaultMessage)
-                .collect(Collectors.joining(", "));
-        return buildError(HttpStatus.BAD_REQUEST, "Validation failed", message, request.getRequestURI());
+    ResponseEntity<ApiError> invalidBody(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        List<FieldDetail> details = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> new FieldDetail(error.getField(), error.getDefaultMessage()))
+                .toList();
+        return respond(400, ApiError.invalid(details, trace(request)));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> invalidValue(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        return invalidField(ex.getName(), "has an invalid format", request);
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    ResponseEntity<ApiError> missingHeader(MissingRequestHeaderException ex, HttpServletRequest request) {
+        return invalidField(ex.getHeaderName(), "header required", request);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    ResponseEntity<ApiError> missingParameter(MissingServletRequestParameterException ex,
+            HttpServletRequest request) {
+        return invalidField(ex.getParameterName(), "is required", request);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<ApiError> unreadableBody(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return respond(400, ApiError.of(ApiError.VALIDATION_ERROR,
+                "the request body is not valid JSON", trace(request)));
     }
 
     @ExceptionHandler(InvalidBusinessDataException.class)
-    public ResponseEntity<ApiError> handleInvalidBusinessData(InvalidBusinessDataException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.BAD_REQUEST, "Invalid business data", ex.getMessage(), request.getRequestURI());
+    ResponseEntity<ApiError> ruleViolation(InvalidBusinessDataException ex, HttpServletRequest request) {
+        return respond(422, ApiError.of(ApiError.BUSINESS_RULE_VIOLATION, ex.getMessage(), trace(request)));
     }
 
-    @ExceptionHandler(ProfessionalNotFoundException.class)
-    public ResponseEntity<ApiError> handleProfessionalNotFound(ProfessionalNotFoundException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.NOT_FOUND, "Professional not found", ex.getMessage(), request.getRequestURI());
+    @ExceptionHandler({ProfessionalNotFoundException.class, SpecialtyNotFoundException.class})
+    ResponseEntity<ApiError> notFound(RuntimeException ex, HttpServletRequest request) {
+        return respond(404, ApiError.forStatus(404, trace(request)));
     }
 
-    @ExceptionHandler(SpecialtyNotFoundException.class)
-    public ResponseEntity<ApiError> handleSpecialtyNotFound(SpecialtyNotFoundException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.NOT_FOUND, "Specialty not found", ex.getMessage(), request.getRequestURI());
+    @ExceptionHandler({DuplicateProfessionalIdentityException.class, DuplicateProfessionalLicenseException.class,
+            DuplicateSpecialtyNameException.class})
+    ResponseEntity<ApiError> duplicate(RuntimeException ex, HttpServletRequest request) {
+        return respond(409, ApiError.of(ApiError.CONFLICT, ex.getMessage(), trace(request)));
     }
 
-    @ExceptionHandler({DuplicateProfessionalIdentityException.class, DuplicateProfessionalLicenseException.class, DuplicateSpecialtyNameException.class})
-    public ResponseEntity<ApiError> handleConflict(RuntimeException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.CONFLICT, "Conflict", ex.getMessage(), request.getRequestURI());
-    }
-
+    /** A uniqueness or integrity rule enforced by the database; the cause goes to the log. */
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiError> handleIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.CONFLICT, "Database constraint violation", "The operation violates a database uniqueness or integrity rule.", request.getRequestURI());
+    ResponseEntity<ApiError> integrityViolation(DataIntegrityViolationException ex, HttpServletRequest request) {
+        LOG.warn("integrity violation on {} {}", request.getMethod(), request.getRequestURI(), ex);
+        return respond(409, ApiError.forStatus(409, trace(request)));
+    }
+
+    /** Framework errors that already carry a status: unknown route, method, media type. */
+    @ExceptionHandler({ServletException.class, ErrorResponseException.class})
+    ResponseEntity<ApiError> framework(Exception ex, HttpServletRequest request) {
+        if (!(ex instanceof ErrorResponse response) || response.getStatusCode().is5xxServerError()) {
+            return unexpected(ex, request);
+        }
+        int status = response.getStatusCode().value();
+        return ResponseEntity.status(status)
+                .headers(response.getHeaders())
+                .body(ApiError.forStatus(status, trace(request)));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiError> handleGenericException(Exception ex, HttpServletRequest request) {
-        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error", "An unexpected error occurred.", request.getRequestURI());
+    ResponseEntity<ApiError> unexpected(Exception ex, HttpServletRequest request) {
+        LOG.error("unexpected error on {} {}", request.getMethod(), request.getRequestURI(), ex);
+        return respond(500, ApiError.forStatus(500, trace(request)));
     }
 
-    private ResponseEntity<ApiError> buildError(HttpStatus status, String error, String message, String path) {
-        ApiError apiError = new ApiError(Instant.now(), status.value(), error, message, path);
-        return ResponseEntity.status(status).body(apiError);
+    private ResponseEntity<ApiError> invalidField(String field, String message, HttpServletRequest request) {
+        return respond(400, ApiError.invalid(List.of(new FieldDetail(field, message)), trace(request)));
+    }
+
+    private static ResponseEntity<ApiError> respond(int status, ApiError body) {
+        return ResponseEntity.status(status).body(body);
+    }
+
+    private static String trace(HttpServletRequest request) {
+        return CorrelationFilter.current(request);
     }
 }
