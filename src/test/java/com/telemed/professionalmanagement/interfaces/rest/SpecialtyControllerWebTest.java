@@ -106,7 +106,8 @@ class SpecialtyControllerWebTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Specialty not found with id: 404"));
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 
     @Test

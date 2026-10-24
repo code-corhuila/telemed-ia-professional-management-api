@@ -93,9 +93,11 @@ class ProfessionalControllerWebTest {
     void shouldReturn404WhenProfessionalDoesNotExist() throws Exception {
         when(getProfessionalUseCase.getById(404L)).thenThrow(new ProfessionalNotFoundException(404L));
 
-        mockMvc.perform(get("/api/professionals/404"))
+        mockMvc.perform(get("/api/professionals/404").header("X-Correlation-Id", "trace-404"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("Professional not found with id: 404"));
+                .andExpect(jsonPath("$.error").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.traceId").value("trace-404"));
     }
 
     @Test
@@ -107,7 +109,11 @@ class ProfessionalControllerWebTest {
         mockMvc.perform(post("/api/professionals")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.details[*].field").value(org.hamcrest.Matchers.hasItems(
+                        "identityUserId", "licenseNumber", "yearsExperience")))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 
     @Test
@@ -123,11 +129,11 @@ class ProfessionalControllerWebTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.timestamp").exists())
-                .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.error").value("CONFLICT"))
                 .andExpect(jsonPath("$.message").isNotEmpty())
-                .andExpect(jsonPath("$.path").value("/api/professionals"));
+                .andExpect(jsonPath("$.traceId").isNotEmpty())
+                .andExpect(jsonPath("$.timestamp").doesNotExist())
+                .andExpect(jsonPath("$.path").doesNotExist());
     }
 
     @Test
@@ -143,11 +149,11 @@ class ProfessionalControllerWebTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.timestamp").exists())
-                .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.error").value("Conflict"))
+                .andExpect(jsonPath("$.error").value("CONFLICT"))
                 .andExpect(jsonPath("$.message").isNotEmpty())
-                .andExpect(jsonPath("$.path").value("/api/professionals"));
+                .andExpect(jsonPath("$.traceId").isNotEmpty())
+                .andExpect(jsonPath("$.timestamp").doesNotExist())
+                .andExpect(jsonPath("$.path").doesNotExist());
     }
 
     @Test
