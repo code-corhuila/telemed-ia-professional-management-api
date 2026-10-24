@@ -5,9 +5,11 @@ import com.telemed.professionalmanagement.application.port.in.GetProfessionalUse
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
 import com.telemed.professionalmanagement.application.port.in.RegisterProfessionalUseCase;
 import com.telemed.professionalmanagement.domain.Professional;
+import com.telemed.professionalmanagement.interfaces.rest.auth.AuthFilter;
 import com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest;
 import com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalResponse;
 import com.telemed.professionalmanagement.interfaces.rest.mapper.ProfessionalRestMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -54,8 +56,9 @@ public class ProfessionalController {
     }
 
     @PostMapping("/professionals")
-    public ResponseEntity<ProfessionalResponse> registerProfessional(@Valid @RequestBody ProfessionalRequest request) {
-        Professional professional = registerProfessionalUseCase.register(new RegisterProfessionalCommand(
+    public ResponseEntity<ProfessionalResponse> registerProfessional(@Valid @RequestBody ProfessionalRequest request,
+                                                                     HttpServletRequest http) {
+        Professional professional = registerProfessionalUseCase.register(AuthFilter.currentCaller(http), new RegisterProfessionalCommand(
                 request.identityUserId(),
                 request.licenseNumber(),
                 request.specialtyId(),
