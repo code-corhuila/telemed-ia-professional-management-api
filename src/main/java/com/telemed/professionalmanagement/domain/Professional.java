@@ -1,19 +1,21 @@
 package com.telemed.professionalmanagement.domain;
 
+import java.util.UUID;
+
 /**
  * A healthcare professional profile. Every professional is a general practitioner (DEC-005)
  * and a new profile starts {@code ACTIVE} (FR-011).
  */
 public class Professional {
 
-    private final Long id;
-    private final Long identityUserId;
+    private final UUID id;
+    private final UUID identityUserId;
     private final String licenseNumber;
     private final Integer yearsExperience;
     private final ProfessionalType professionalType;
     private final ProfessionalStatus status;
 
-    public Professional(Long id, Long identityUserId, String licenseNumber, Integer yearsExperience,
+    public Professional(UUID id, UUID identityUserId, String licenseNumber, Integer yearsExperience,
                         ProfessionalType professionalType, ProfessionalStatus status) {
         validate(identityUserId, licenseNumber, yearsExperience, professionalType, status);
         this.id = id;
@@ -25,16 +27,16 @@ public class Professional {
     }
 
     /** A profile registered by an administrator: an active general practitioner, not stored yet. */
-    public static Professional register(Long identityUserId, String licenseNumber, Integer yearsExperience) {
+    public static Professional register(UUID identityUserId, String licenseNumber, Integer yearsExperience) {
         return new Professional(null, identityUserId, licenseNumber, yearsExperience,
                 ProfessionalType.GENERAL_PRACTITIONER, ProfessionalStatus.ACTIVE);
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public Long getIdentityUserId() {
+    public UUID getIdentityUserId() {
         return identityUserId;
     }
 
@@ -54,7 +56,7 @@ public class Professional {
         return status;
     }
 
-    private void validate(Long identityUserId, String licenseNumber, Integer yearsExperience,
+    private void validate(UUID identityUserId, String licenseNumber, Integer yearsExperience,
                           ProfessionalType professionalType, ProfessionalStatus status) {
         if (identityUserId == null) {
             throw new InvalidBusinessDataException("identityUserId is required");
