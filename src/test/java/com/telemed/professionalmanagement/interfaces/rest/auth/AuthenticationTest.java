@@ -31,7 +31,7 @@ class AuthenticationTest {
 
     private static final ParameterizedTypeReference<Map<String, Object>> JSON = new ParameterizedTypeReference<>() { };
     private static final String VALID_PROFESSIONAL =
-            "{\"identityUserId\":99,\"licenseNumber\":\"AUTH-123\",\"yearsExperience\":3}";
+            "{\"identityUserId\":\"c1000000-0000-4000-8000-000000000099\",\"licenseNumber\":\"AUTH-123\",\"yearsExperience\":3}";
 
     @Autowired
     private TestRestTemplate restTemplate;

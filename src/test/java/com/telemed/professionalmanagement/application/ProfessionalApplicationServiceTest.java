@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,89 +38,93 @@ class ProfessionalApplicationServiceTest {
 
     private static final Caller ADMIN = new Caller("admin-1", Set.of(Caller.ADMIN));
 
+    private static final UUID ID = UUID.fromString("c0000000-0000-4000-8000-000000000007");
+    private static final UUID ACCOUNT = UUID.fromString("c1000000-0000-4000-8000-000000000100");
+    private static final UUID OTHER_ACCOUNT = UUID.fromString("c1000000-0000-4000-8000-000000000101");
+
     @Mock
     private ProfessionalRepositoryPort professionalRepositoryPort;
 
     @InjectMocks
     private ProfessionalApplicationService professionalApplicationService;
 
-    private static Professional stored(Long id, Long identityUserId, String licenseNumber, int yearsExperience) {
+    private static Professional stored(UUID id, UUID identityUserId, String licenseNumber, int yearsExperience) {
         return new Professional(id, identityUserId, licenseNumber, yearsExperience,
                 ProfessionalType.GENERAL_PRACTITIONER, ProfessionalStatus.ACTIVE);
     }
 
     @Test
     void aRegisteredProfessionalIsAnActiveGeneralPractitioner() {
-        when(professionalRepositoryPort.existsByIdentityUserId(100L)).thenReturn(false);
+        when(professionalRepositoryPort.existsByIdentityUserId(ACCOUNT)).thenReturn(false);
         when(professionalRepositoryPort.existsByLicenseNumber("ABC-123")).thenReturn(false);
         when(professionalRepositoryPort.save(any(Professional.class))).thenAnswer(invocation -> {
             Professional candidate = invocation.getArgument(0);
-            return new Professional(7L, candidate.getIdentityUserId(), candidate.getLicenseNumber(),
+            return new Professional(ID, candidate.getIdentityUserId(), candidate.getLicenseNumber(),
                     candidate.getYearsExperience(), candidate.getProfessionalType(), candidate.getStatus());
         });
 
         Professional professional = professionalApplicationService.register(ADMIN,
-                new RegisterProfessionalCommand(100L, "ABC-123", 12));
+                new RegisterProfessionalCommand(ACCOUNT, "ABC-123", 12));
 
         ArgumentCaptor<Professional> saved = ArgumentCaptor.forClass(Professional.class);
         verify(professionalRepositoryPort).save(saved.capture());
         assertNull(saved.getValue().getId());
         assertEquals(ProfessionalType.GENERAL_PRACTITIONER, saved.getValue().getProfessionalType());
         assertEquals(ProfessionalStatus.ACTIVE, saved.getValue().getStatus());
-        assertEquals(7L, professional.getId());
-        assertEquals(100L, professional.getIdentityUserId());
+        assertEquals(ID, professional.getId());
+        assertEquals(ACCOUNT, professional.getIdentityUserId());
         assertEquals("ABC-123", professional.getLicenseNumber());
         assertEquals(12, professional.getYearsExperience());
     }
 
     @Test
     void aDuplicateAccountOrLicenseIsAConflict() {
-        when(professionalRepositoryPort.existsByIdentityUserId(100L)).thenReturn(true);
+        when(professionalRepositoryPort.existsByIdentityUserId(ACCOUNT)).thenReturn(true);
         assertThrows(DuplicateProfessionalIdentityException.class, () -> professionalApplicationService.register(ADMIN,
-                new RegisterProfessionalCommand(100L, "ABC-123", 12)));
+                new RegisterProfessionalCommand(ACCOUNT, "ABC-123", 12)));
 
-        when(professionalRepositoryPort.existsByIdentityUserId(101L)).thenReturn(false);
+        when(professionalRepositoryPort.existsByIdentityUserId(OTHER_ACCOUNT)).thenReturn(false);
         when(professionalRepositoryPort.existsByLicenseNumber("ABC-123")).thenReturn(true);
         assertThrows(DuplicateProfessionalLicenseException.class, () -> professionalApplicationService.register(ADMIN,
-                new RegisterProfessionalCommand(101L, "ABC-123", 12)));
+                new RegisterProfessionalCommand(OTHER_ACCOUNT, "ABC-123", 12)));
     }
 
     @Test
     void shouldAcceptLicenseNumberUpTo80Characters() {
-        Professional professional = Professional.register(100L, "A".repeat(80), 5);
+        Professional professional = Professional.register(ACCOUNT, "A".repeat(80), 5);
 
         assertEquals(80, professional.getLicenseNumber().length());
     }
 
     @Test
     void shouldRejectLicenseNumberLongerThan80Characters() {
-        assertThrows(InvalidBusinessDataException.class, () -> Professional.register(100L, "A".repeat(81), 5));
+        assertThrows(InvalidBusinessDataException.class, () -> Professional.register(ACCOUNT, "A".repeat(81), 5));
     }
 
     @Test
     void shouldRejectInvalidYearsExperience() {
-        assertThrows(InvalidBusinessDataException.class, () -> Professional.register(100L, "ABC-123", -1));
+        assertThrows(InvalidBusinessDataException.class, () -> Professional.register(ACCOUNT, "ABC-123", -1));
     }
 
     @Test
     void aStoredProfessionalNeedsItsTypeAndStatus() {
         assertThrows(InvalidBusinessDataException.class,
-                () -> new Professional(1L, 100L, "ABC-123", 5, null, ProfessionalStatus.ACTIVE));
+                () -> new Professional(ID, ACCOUNT, "ABC-123", 5, null, ProfessionalStatus.ACTIVE));
         assertThrows(InvalidBusinessDataException.class,
-                () -> new Professional(1L, 100L, "ABC-123", 5, ProfessionalType.GENERAL_PRACTITIONER, null));
+                () -> new Professional(ID, ACCOUNT, "ABC-123", 5, ProfessionalType.GENERAL_PRACTITIONER, null));
     }
 
     @Test
     void shouldReturnProfessionalNotFoundWhenMissing() {
-        when(professionalRepositoryPort.findById(99L)).thenReturn(Optional.empty());
-        assertThrows(ProfessionalNotFoundException.class, () -> professionalApplicationService.getById(99L));
+        when(professionalRepositoryPort.findById(ID)).thenReturn(Optional.empty());
+        assertThrows(ProfessionalNotFoundException.class, () -> professionalApplicationService.getById(ID));
     }
 
     @Test
     void shouldListProfessionalsSuccessfully() {
         when(professionalRepositoryPort.findAll()).thenReturn(List.of(
-                stored(1L, 100L, "ABC-123", 8),
-                stored(2L, 101L, "DEF-456", 10)));
+                stored(UUID.randomUUID(), ACCOUNT, "ABC-123", 8),
+                stored(UUID.randomUUID(), OTHER_ACCOUNT, "DEF-456", 10)));
 
         assertEquals(2, professionalApplicationService.listAll().size());
     }
@@ -129,7 +134,7 @@ class ProfessionalApplicationServiceTest {
         Caller patient = new Caller("patient-1", Set.of("PATIENT"));
 
         assertThrows(AccessDeniedException.class, () -> professionalApplicationService.register(patient,
-                new RegisterProfessionalCommand(99L, "ABC-123", 12)));
+                new RegisterProfessionalCommand(ACCOUNT, "ABC-123", 12)));
         verifyNoInteractions(professionalRepositoryPort);
     }
 }
