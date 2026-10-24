@@ -58,12 +58,10 @@ class ProfessionalControllerWebTest {
 
     @Test
     void shouldCreateProfessionalSuccessfully() throws Exception {
-        Professional professional = new Professional(5L, 99L, "ABC-123", 7L, 12);
+        Professional professional = new Professional(5L, 99L, "ABC-123", 12, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE);
         when(registerProfessionalUseCase.register(any(com.telemed.professionalmanagement.application.port.in.Caller.class), any(RegisterProfessionalCommand.class))).thenReturn(professional);
 
-        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(
-                99L, "ABC-123", 7L, 12
-        ));
+        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(99L, "ABC-123", 12));
 
         mockMvc.perform(post("/api/professionals").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -79,18 +77,19 @@ class ProfessionalControllerWebTest {
         RegisterProfessionalCommand command = commandCaptor.getValue();
         assertEquals(99L, command.identityUserId());
         assertEquals("ABC-123", command.licenseNumber());
-        assertEquals(7L, command.specialtyId());
         assertEquals(12, command.yearsExperience());
     }
 
     @Test
     void shouldReturnProfessionalById() throws Exception {
-        when(getProfessionalUseCase.getById(5L)).thenReturn(new Professional(5L, 99L, "ABC-123", 7L, 12));
+        when(getProfessionalUseCase.getById(5L)).thenReturn(new Professional(5L, 99L, "ABC-123", 12, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE));
 
         mockMvc.perform(get("/api/professionals/5").header("Authorization", ADMIN_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(5))
-                .andExpect(jsonPath("$.specialtyId").value(7));
+                .andExpect(jsonPath("$.professionalType").value("GENERAL_PRACTITIONER"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.specialtyId").doesNotExist());
     }
 
     @Test
@@ -106,9 +105,7 @@ class ProfessionalControllerWebTest {
 
     @Test
     void shouldFailValidationWhenRequestIsInvalid() throws Exception {
-        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(
-                null, "", 7L, -1
-        ));
+        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(null, "", -1));
 
         mockMvc.perform(post("/api/professionals").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -125,9 +122,7 @@ class ProfessionalControllerWebTest {
         when(registerProfessionalUseCase.register(any(com.telemed.professionalmanagement.application.port.in.Caller.class), any(RegisterProfessionalCommand.class)))
                 .thenThrow(new DuplicateProfessionalLicenseException("ABC-123"));
 
-        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(
-                99L, "ABC-123", 7L, 12
-        ));
+        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(99L, "ABC-123", 12));
 
         mockMvc.perform(post("/api/professionals").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -145,9 +140,7 @@ class ProfessionalControllerWebTest {
         when(registerProfessionalUseCase.register(any(com.telemed.professionalmanagement.application.port.in.Caller.class), any(RegisterProfessionalCommand.class)))
                 .thenThrow(new DuplicateProfessionalIdentityException(99L));
 
-        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(
-                99L, "ABC-123", 7L, 12
-        ));
+        String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(99L, "ABC-123", 12));
 
         mockMvc.perform(post("/api/professionals").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -163,8 +156,8 @@ class ProfessionalControllerWebTest {
     @Test
     void shouldListProfessionals() throws Exception {
         when(listProfessionalsUseCase.listAll()).thenReturn(List.of(
-                new Professional(1L, 10L, "A1", 1L, 5),
-                new Professional(2L, 11L, "B2", 2L, 6)
+                new Professional(1L, 10L, "A1", 5, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE),
+                new Professional(2L, 11L, "B2", 6, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE)
         ));
 
         mockMvc.perform(get("/api/professionals").header("Authorization", ADMIN_TOKEN))

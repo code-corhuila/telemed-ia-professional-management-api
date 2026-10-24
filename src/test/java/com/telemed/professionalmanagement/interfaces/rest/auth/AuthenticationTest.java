@@ -31,7 +31,7 @@ class AuthenticationTest {
 
     private static final ParameterizedTypeReference<Map<String, Object>> JSON = new ParameterizedTypeReference<>() { };
     private static final String VALID_PROFESSIONAL =
-            "{\"identityUserId\":99,\"licenseNumber\":\"AUTH-123\",\"specialtyId\":7,\"yearsExperience\":3}";
+            "{\"identityUserId\":99,\"licenseNumber\":\"AUTH-123\",\"yearsExperience\":3}";
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -109,8 +109,6 @@ class AuthenticationTest {
 
         assertThat(patient.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(patient.getBody()).containsEntry("error", "FORBIDDEN").containsKey("traceId");
-        // The administrator gets past authorization; the unknown specialty is the next rule.
-        assertThat(register(TestTokens.bearer("admin-1", "ADMIN")).getStatusCode())
-                .isNotIn(HttpStatus.UNAUTHORIZED, HttpStatus.FORBIDDEN);
+        assertThat(register(TestTokens.bearer("admin-1", "ADMIN")).getStatusCode()).isEqualTo(HttpStatus.CREATED);
     }
 }
