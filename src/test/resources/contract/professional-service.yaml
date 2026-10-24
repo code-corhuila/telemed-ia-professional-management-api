@@ -60,6 +60,50 @@ paths:
         '404':
           $ref: './_shared.yaml#/components/responses/NotFound'
 
+  /{id}/status:
+    patch:
+      summary: Change the profile status (ADMIN only)
+      description: |
+        Sets the profile status to `ACTIVE` or `INACTIVE` (FR-011, ADR-013, DEC-007).
+        Setting the status the profile already has returns `200` and changes nothing,
+        so a retry is safe without an `Idempotency-Key`. The Identity & Access account
+        and appointment availability are not affected.
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/IdParam'
+        - $ref: './_shared.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              additionalProperties: false
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - ACTIVE
+                    - INACTIVE
+      responses:
+        '200':
+          description: The professional with its current status
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/Professional'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './_shared.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './_shared.yaml#/components/responses/NotFound'
+
   /admin/register:
     post:
       summary: Register a new professional (ADMIN only)

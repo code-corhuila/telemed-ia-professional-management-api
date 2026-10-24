@@ -351,6 +351,53 @@ class ProfessionalServiceContractTest {
         }
     }
 
+    // ------------------------------------------------------------------ Profile status
+
+    @Nested
+    class ProfileStatus {
+
+        private Reply change(String id, String status) throws Exception {
+            return send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + BASE + "/" + id + "/status"))
+                    .header("Content-Type", "application/json").header("Authorization", ADMIN)
+                    .method("PATCH", HttpRequest.BodyPublishers.ofString("{\"status\":\"" + status + "\"}")));
+        }
+
+        @Test
+        void anAdministratorDeactivatesAndReactivatesAProfile() throws Exception {
+            String id = professionals.save(Professional.register(UUID.randomUUID(), "CT-ST-1", 2)).getId().toString();
+
+            Reply inactive = change(id, "INACTIVE");
+            Reply again = change(id, "INACTIVE");
+            Reply active = change(id, "ACTIVE");
+
+            assertThat(inactive.status()).isEqualTo(200);
+            assertThat(inactive.json().get("status").asText()).isEqualTo("INACTIVE");
+            assertThat(again.status()).isEqualTo(200);
+            assertThat(active.json().get("status").asText()).isEqualTo("ACTIVE");
+            assertThat(active.json().get("id").asText()).isEqualTo(id);
+        }
+
+        @Test
+        void aStatusOutsideTheContractIs400() throws Exception {
+            assertError(change(seeded.get(0).getId().toString(), "SUSPENDED"), 400, "VALIDATION_ERROR");
+        }
+
+        @Test
+        void anUnknownProfessionalIs404() throws Exception {
+            assertError(change(UUID.randomUUID().toString(), "ACTIVE"), 404, "NOT_FOUND");
+        }
+
+        @Test
+        void aPatientCannotChangeTheStatus() throws Exception {
+            Reply reply = send(read(HttpRequest.newBuilder(URI.create(
+                            "http://localhost:" + port + BASE + "/" + seeded.get(0).getId() + "/status"))
+                    .header("Content-Type", "application/json")
+                    .method("PATCH", HttpRequest.BodyPublishers.ofString("{\"status\":\"INACTIVE\"}"))));
+
+            assertError(reply, 403, "FORBIDDEN");
+        }
+    }
+
     // ------------------------------------------------------------------------- helpers
 
     private long storedTotal() {
