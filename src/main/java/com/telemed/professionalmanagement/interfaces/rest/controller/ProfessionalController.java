@@ -1,5 +1,7 @@
 package com.telemed.professionalmanagement.interfaces.rest.controller;
 
+import java.util.UUID;
+
 import com.telemed.professionalmanagement.application.command.RegisterProfessionalCommand;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
@@ -50,7 +52,7 @@ public class ProfessionalController {
     }
 
     @GetMapping("/professionals/{professionalId}")
-    public ResponseEntity<ProfessionalResponse> getProfessional(@PathVariable Long professionalId) {
+    public ResponseEntity<ProfessionalResponse> getProfessional(@PathVariable UUID professionalId) {
         Professional professional = getProfessionalUseCase.getById(professionalId);
         return ResponseEntity.ok(professionalRestMapper.toResponse(professional));
     }
