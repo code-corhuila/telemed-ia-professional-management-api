@@ -32,6 +32,11 @@ public class Professional {
                 ProfessionalType.GENERAL_PRACTITIONER, ProfessionalStatus.ACTIVE);
     }
 
+    /** The same profile with another status (FR-011, ADR-013); everything else is kept. */
+    public Professional withStatus(ProfessionalStatus newStatus) {
+        return new Professional(id, identityUserId, licenseNumber, yearsExperience, professionalType, newStatus);
+    }
+
     public UUID getId() {
         return id;
     }
