@@ -27,6 +27,10 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class SpecialtyApplicationServiceTest {
 
+    private static final com.telemed.professionalmanagement.application.port.in.Caller ADMIN =
+            new com.telemed.professionalmanagement.application.port.in.Caller("admin-1",
+                    java.util.Set.of(com.telemed.professionalmanagement.application.port.in.Caller.ADMIN));
+
     @Mock
     private SpecialtyRepositoryPort specialtyRepositoryPort;
 
@@ -41,7 +45,7 @@ class SpecialtyApplicationServiceTest {
             return new Specialty(5L, specialty.getName(), specialty.getDescription());
         });
 
-        Specialty created = specialtyApplicationService.create(new CreateSpecialtyCommand("Cardiology", "Heart care"));
+        Specialty created = specialtyApplicationService.create(ADMIN, new CreateSpecialtyCommand("Cardiology", "Heart care"));
 
         ArgumentCaptor<Specialty> specialtyCaptor = ArgumentCaptor.forClass(Specialty.class);
         verify(specialtyRepositoryPort, times(1)).save(specialtyCaptor.capture());
@@ -63,7 +67,7 @@ class SpecialtyApplicationServiceTest {
         when(specialtyRepositoryPort.save(any(Specialty.class))).thenAnswer(invocation ->
                 new Specialty(3L, "Neurology", "Brain care"));
 
-        Specialty updated = specialtyApplicationService.update(3L, new UpdateSpecialtyCommand("Neurology", "Brain care"));
+        Specialty updated = specialtyApplicationService.update(ADMIN, 3L, new UpdateSpecialtyCommand("Neurology", "Brain care"));
 
         assertEquals("Neurology", updated.getName());
         assertEquals("Brain care", updated.getDescription());
@@ -73,7 +77,7 @@ class SpecialtyApplicationServiceTest {
     void shouldThrowWhenSpecialtyNotFound() {
         when(specialtyRepositoryPort.findById(99L)).thenReturn(Optional.empty());
         assertThrows(SpecialtyNotFoundException.class,
-                () -> specialtyApplicationService.update(99L, new UpdateSpecialtyCommand("Any", "Any")));
+                () -> specialtyApplicationService.update(ADMIN, 99L, new UpdateSpecialtyCommand("Any", "Any")));
     }
 
     @Test
@@ -85,5 +89,19 @@ class SpecialtyApplicationServiceTest {
 
         List<Specialty> specialties = specialtyApplicationService.listAll();
         assertEquals(2, specialties.size());
+    }
+
+    @Test
+    void onlyAnAdministratorChangesTheCatalog() {
+        com.telemed.professionalmanagement.application.port.in.Caller professional =
+                new com.telemed.professionalmanagement.application.port.in.Caller("pro-1", java.util.Set.of("PROFESSIONAL"));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.telemed.professionalmanagement.application.port.in.AccessDeniedException.class,
+                () -> specialtyApplicationService.create(professional, new CreateSpecialtyCommand("Cardiology", "Heart care")));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.telemed.professionalmanagement.application.port.in.AccessDeniedException.class,
+                () -> specialtyApplicationService.update(professional, 3L, new UpdateSpecialtyCommand("Neurology", "Brain care")));
+        org.mockito.Mockito.verifyNoInteractions(specialtyRepositoryPort);
     }
 }

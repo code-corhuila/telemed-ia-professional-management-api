@@ -36,8 +36,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SpecialtyController.class)
-@Import({SpecialtyRestMapper.class, ApiExceptionHandler.class})
+@Import({SpecialtyRestMapper.class, ApiExceptionHandler.class,
+        com.telemed.professionalmanagement.interfaces.rest.auth.TestSecurityConfiguration.class})
 class SpecialtyControllerWebTest {
+
+    private static final String ADMIN_TOKEN =
+            com.telemed.professionalmanagement.interfaces.rest.auth.TestTokens.bearer("admin-1", "ADMIN");
 
     @Autowired
     private MockMvc mockMvc;
@@ -57,11 +61,11 @@ class SpecialtyControllerWebTest {
     @Test
     void shouldCreateSpecialtySuccessfully() throws Exception {
         Specialty specialty = new Specialty(3L, "Neurology", "Brain health");
-        when(createSpecialtyUseCase.create(any(CreateSpecialtyCommand.class))).thenReturn(specialty);
+        when(createSpecialtyUseCase.create(any(com.telemed.professionalmanagement.application.port.in.Caller.class), any(CreateSpecialtyCommand.class))).thenReturn(specialty);
 
         String body = objectMapper.writeValueAsString(new SpecialtyRequest("Neurology", "Brain health"));
 
-        mockMvc.perform(post("/api/specialties")
+        mockMvc.perform(post("/api/specialties").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
@@ -70,7 +74,7 @@ class SpecialtyControllerWebTest {
 
         ArgumentCaptor<CreateSpecialtyCommand> commandCaptor =
                 ArgumentCaptor.forClass(CreateSpecialtyCommand.class);
-        verify(createSpecialtyUseCase, times(1)).create(commandCaptor.capture());
+        verify(createSpecialtyUseCase, times(1)).create(any(com.telemed.professionalmanagement.application.port.in.Caller.class), commandCaptor.capture());
         assertEquals("Neurology", commandCaptor.getValue().name());
         assertEquals("Brain health", commandCaptor.getValue().description());
     }
@@ -78,11 +82,11 @@ class SpecialtyControllerWebTest {
     @Test
     void shouldUpdateSpecialtySuccessfully() throws Exception {
         Specialty specialty = new Specialty(3L, "Neurology", "Brain care");
-        when(updateSpecialtyUseCase.update(eq(3L), any(UpdateSpecialtyCommand.class))).thenReturn(specialty);
+        when(updateSpecialtyUseCase.update(any(com.telemed.professionalmanagement.application.port.in.Caller.class), eq(3L), any(UpdateSpecialtyCommand.class))).thenReturn(specialty);
 
         String body = objectMapper.writeValueAsString(new SpecialtyRequest("Neurology", "Brain care"));
 
-        mockMvc.perform(put("/api/specialties/3")
+        mockMvc.perform(put("/api/specialties/3").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
@@ -90,19 +94,19 @@ class SpecialtyControllerWebTest {
 
         ArgumentCaptor<UpdateSpecialtyCommand> commandCaptor =
                 ArgumentCaptor.forClass(UpdateSpecialtyCommand.class);
-        verify(updateSpecialtyUseCase, times(1)).update(eq(3L), commandCaptor.capture());
+        verify(updateSpecialtyUseCase, times(1)).update(any(com.telemed.professionalmanagement.application.port.in.Caller.class), eq(3L), commandCaptor.capture());
         assertEquals("Neurology", commandCaptor.getValue().name());
         assertEquals("Brain care", commandCaptor.getValue().description());
     }
 
     @Test
     void shouldReturn404WhenSpecialtyDoesNotExist() throws Exception {
-        when(updateSpecialtyUseCase.update(eq(404L), any(UpdateSpecialtyCommand.class)))
+        when(updateSpecialtyUseCase.update(any(com.telemed.professionalmanagement.application.port.in.Caller.class), eq(404L), any(UpdateSpecialtyCommand.class)))
                 .thenThrow(new SpecialtyNotFoundException(404L));
 
         String body = objectMapper.writeValueAsString(new SpecialtyRequest("Neurology", "Brain care"));
 
-        mockMvc.perform(put("/api/specialties/404")
+        mockMvc.perform(put("/api/specialties/404").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isNotFound())
@@ -117,7 +121,7 @@ class SpecialtyControllerWebTest {
                 new Specialty(2L, "Neurology", "Brain")
         ));
 
-        mockMvc.perform(get("/api/specialties"))
+        mockMvc.perform(get("/api/specialties").header("Authorization", ADMIN_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
     }

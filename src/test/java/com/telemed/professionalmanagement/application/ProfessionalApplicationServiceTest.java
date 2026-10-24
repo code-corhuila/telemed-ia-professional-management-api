@@ -25,6 +25,10 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ProfessionalApplicationServiceTest {
 
+    private static final com.telemed.professionalmanagement.application.port.in.Caller ADMIN =
+            new com.telemed.professionalmanagement.application.port.in.Caller("admin-1",
+                    java.util.Set.of(com.telemed.professionalmanagement.application.port.in.Caller.ADMIN));
+
     @Mock
     private ProfessionalRepositoryPort professionalRepositoryPort;
 
@@ -43,7 +47,7 @@ class ProfessionalApplicationServiceTest {
         when(professionalRepositoryPort.save(any(Professional.class)))
                 .thenAnswer(invocation -> new Professional(7L, 100L, "ABC-123", 9L, 12));
 
-        Professional professional = professionalApplicationService.register(
+        Professional professional = professionalApplicationService.register(ADMIN, 
                 new RegisterProfessionalCommand(100L, "ABC-123", 9L, 12)
         );
 
@@ -92,5 +96,17 @@ class ProfessionalApplicationServiceTest {
 
         List<Professional> professionals = professionalApplicationService.listAll();
         assertEquals(2, professionals.size());
+    }
+
+    @Test
+    void onlyAnAdministratorRegistersAProfessional() {
+        com.telemed.professionalmanagement.application.port.in.Caller patient =
+                new com.telemed.professionalmanagement.application.port.in.Caller("patient-1", java.util.Set.of("PATIENT"));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.telemed.professionalmanagement.application.port.in.AccessDeniedException.class,
+                () -> professionalApplicationService.register(patient,
+                        new RegisterProfessionalCommand(99L, "ABC-123", 7L, 12)));
+        org.mockito.Mockito.verifyNoInteractions(professionalRepositoryPort, specialtyRepositoryPort);
     }
 }

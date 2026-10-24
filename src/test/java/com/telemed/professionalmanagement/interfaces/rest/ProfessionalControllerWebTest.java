@@ -34,8 +34,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ProfessionalController.class)
-@Import({ProfessionalRestMapper.class, ApiExceptionHandler.class})
+@Import({ProfessionalRestMapper.class, ApiExceptionHandler.class,
+        com.telemed.professionalmanagement.interfaces.rest.auth.TestSecurityConfiguration.class})
 class ProfessionalControllerWebTest {
+
+    private static final String ADMIN_TOKEN =
+            com.telemed.professionalmanagement.interfaces.rest.auth.TestTokens.bearer("admin-1", "ADMIN");
 
     @Autowired
     private MockMvc mockMvc;
@@ -55,13 +59,13 @@ class ProfessionalControllerWebTest {
     @Test
     void shouldCreateProfessionalSuccessfully() throws Exception {
         Professional professional = new Professional(5L, 99L, "ABC-123", 7L, 12);
-        when(registerProfessionalUseCase.register(any(RegisterProfessionalCommand.class))).thenReturn(professional);
+        when(registerProfessionalUseCase.register(any(com.telemed.professionalmanagement.application.port.in.Caller.class), any(RegisterProfessionalCommand.class))).thenReturn(professional);
 
         String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(
                 99L, "ABC-123", 7L, 12
         ));
 
-        mockMvc.perform(post("/api/professionals")
+        mockMvc.perform(post("/api/professionals").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
@@ -71,7 +75,7 @@ class ProfessionalControllerWebTest {
 
         ArgumentCaptor<RegisterProfessionalCommand> commandCaptor =
                 ArgumentCaptor.forClass(RegisterProfessionalCommand.class);
-        verify(registerProfessionalUseCase, times(1)).register(commandCaptor.capture());
+        verify(registerProfessionalUseCase, times(1)).register(any(com.telemed.professionalmanagement.application.port.in.Caller.class), commandCaptor.capture());
         RegisterProfessionalCommand command = commandCaptor.getValue();
         assertEquals(99L, command.identityUserId());
         assertEquals("ABC-123", command.licenseNumber());
@@ -83,7 +87,7 @@ class ProfessionalControllerWebTest {
     void shouldReturnProfessionalById() throws Exception {
         when(getProfessionalUseCase.getById(5L)).thenReturn(new Professional(5L, 99L, "ABC-123", 7L, 12));
 
-        mockMvc.perform(get("/api/professionals/5"))
+        mockMvc.perform(get("/api/professionals/5").header("Authorization", ADMIN_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(5))
                 .andExpect(jsonPath("$.specialtyId").value(7));
@@ -93,7 +97,7 @@ class ProfessionalControllerWebTest {
     void shouldReturn404WhenProfessionalDoesNotExist() throws Exception {
         when(getProfessionalUseCase.getById(404L)).thenThrow(new ProfessionalNotFoundException(404L));
 
-        mockMvc.perform(get("/api/professionals/404").header("X-Correlation-Id", "trace-404"))
+        mockMvc.perform(get("/api/professionals/404").header("Authorization", ADMIN_TOKEN).header("X-Correlation-Id", "trace-404"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.message").isNotEmpty())
@@ -106,7 +110,7 @@ class ProfessionalControllerWebTest {
                 null, "", 7L, -1
         ));
 
-        mockMvc.perform(post("/api/professionals")
+        mockMvc.perform(post("/api/professionals").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
@@ -118,14 +122,14 @@ class ProfessionalControllerWebTest {
 
     @Test
     void shouldReturnConflictWhenProfessionalLicenseIsDuplicate() throws Exception {
-        when(registerProfessionalUseCase.register(any(RegisterProfessionalCommand.class)))
+        when(registerProfessionalUseCase.register(any(com.telemed.professionalmanagement.application.port.in.Caller.class), any(RegisterProfessionalCommand.class)))
                 .thenThrow(new DuplicateProfessionalLicenseException("ABC-123"));
 
         String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(
                 99L, "ABC-123", 7L, 12
         ));
 
-        mockMvc.perform(post("/api/professionals")
+        mockMvc.perform(post("/api/professionals").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isConflict())
@@ -138,14 +142,14 @@ class ProfessionalControllerWebTest {
 
     @Test
     void shouldReturnConflictWhenProfessionalIdentityIsDuplicate() throws Exception {
-        when(registerProfessionalUseCase.register(any(RegisterProfessionalCommand.class)))
+        when(registerProfessionalUseCase.register(any(com.telemed.professionalmanagement.application.port.in.Caller.class), any(RegisterProfessionalCommand.class)))
                 .thenThrow(new DuplicateProfessionalIdentityException(99L));
 
         String body = objectMapper.writeValueAsString(new com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalRequest(
                 99L, "ABC-123", 7L, 12
         ));
 
-        mockMvc.perform(post("/api/professionals")
+        mockMvc.perform(post("/api/professionals").header("Authorization", ADMIN_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isConflict())
@@ -163,7 +167,7 @@ class ProfessionalControllerWebTest {
                 new Professional(2L, 11L, "B2", 2L, 6)
         ));
 
-        mockMvc.perform(get("/api/professionals"))
+        mockMvc.perform(get("/api/professionals").header("Authorization", ADMIN_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
     }

@@ -30,6 +30,12 @@ import org.springframework.test.context.ActiveProfiles;
 @ExtendWith(OutputCaptureExtension.class)
 class HttpConventionsTest {
 
+    @org.springframework.test.context.DynamicPropertySource
+    static void jwt(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        registry.add("JWT_PUBLIC_KEY",
+                com.telemed.professionalmanagement.interfaces.rest.auth.TestTokens::trustedPublicKeyPemOneLine);
+    }
+
     private static final ParameterizedTypeReference<Map<String, Object>> JSON = new ParameterizedTypeReference<>() { };
 
     @Autowired
@@ -40,8 +46,15 @@ class HttpConventionsTest {
     }
 
     private static HttpHeaders correlated(String correlationId) {
-        HttpHeaders headers = new HttpHeaders();
+        HttpHeaders headers = authorized();
         headers.set("X-Correlation-Id", correlationId);
+        return headers;
+    }
+
+    private static HttpHeaders authorized() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.AUTHORIZATION,
+                com.telemed.professionalmanagement.interfaces.rest.auth.TestTokens.bearer("admin-1", "ADMIN"));
         return headers;
     }
 
@@ -65,7 +78,7 @@ class HttpConventionsTest {
 
     @Test
     void withoutTheHeaderTheServiceGeneratesOne() {
-        ResponseEntity<Map<String, Object>> response = get("/api/no-such-route", new HttpHeaders());
+        ResponseEntity<Map<String, Object>> response = get("/api/no-such-route", authorized());
 
         String generated = response.getHeaders().getFirst("X-Correlation-Id");
         assertThat(generated).isNotBlank();
