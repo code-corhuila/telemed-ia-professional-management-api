@@ -85,6 +85,12 @@ The same command as the CI (`.github/workflows/ci.yml`):
 mvn -B verify
 ```
 
+The persistence adapter is tested against PostgreSQL, not a substitute (numeral 5.3):
+`ProfessionalRepositoryPostgresTest` uses `TEST_DATABASE_URL`, a disposable database with the
+migrations of `telemed-ia-professional-management-db` applied, and Hibernate validates the
+mapping against that schema. Without the variable those tests are skipped (Anexo I); the HTTP
+tests run on an in-memory database.
+
 ## Run the API
 
 ```bash
@@ -99,8 +105,8 @@ The application listens on port 8080 by default or on `SERVER_PORT` if set.
 |---|---|---|---|---|
 | `GET /health` | Liveness, without a token (Anexo C). | — | `200 OK` `{"status":"UP"}` | — |
 | `GET /api/professionals` | List professionals. | — | `200 OK` | — |
-| `GET /api/professionals/{professionalId}` | Get a professional by ID. | — | `200 OK` | `404 Not Found` |
-| `POST /api/professionals` | Register a professional. | `identityUserId` (number), `licenseNumber` (string), `yearsExperience` (integer) | `201 Created`, an `ACTIVE` general practitioner | `400 Bad Request`, `409 Conflict` (duplicate identity or license) |
+| `GET /api/professionals/{professionalId}` | Get a professional by its UUID. | — | `200 OK` | `400 Bad Request` (not a UUID), `404 Not Found` |
+| `POST /api/professionals` | Register a professional. | `identityUserId` (UUID), `licenseNumber` (string), `yearsExperience` (integer) | `201 Created`, an `ACTIVE` general practitioner | `400 Bad Request`, `409 Conflict` (duplicate identity or license) |
 
 ## Authentication
 
