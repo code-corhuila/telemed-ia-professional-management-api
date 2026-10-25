@@ -29,6 +29,7 @@ import com.telemed.professionalmanagement.application.port.in.IdempotencyKeyReus
 import com.telemed.professionalmanagement.application.port.in.RegisterProfessionalAccountUseCase;
 import com.telemed.professionalmanagement.application.port.in.Registration;
 import com.telemed.professionalmanagement.application.port.out.IdentityAccountConflictException;
+import com.telemed.professionalmanagement.application.port.out.IdentityAccountRejectedException;
 import com.telemed.professionalmanagement.application.port.out.IdentityUnavailableException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
 import com.telemed.professionalmanagement.domain.Professional;
@@ -155,6 +156,16 @@ class AdminRegistrationWebTest {
         register(KEY, BODY)
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error").value("BUSINESS_RULE_VIOLATION"));
+    }
+
+    @Test
+    void accountDataTheIdentityServiceRejectsIs400() throws Exception {
+        whenRegistering(new IdentityAccountRejectedException());
+
+        register(KEY, BODY)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.traceId").value("trace-reg"));
     }
 
     @Test
