@@ -18,13 +18,13 @@ import com.sun.net.httpserver.HttpServer;
 
 /**
  * A stand-in for the identity service: {@code POST /internal/service-token}
- * (identity-and-access-api #117) and {@code POST /internal/accounts} (#122). Each request is
+ * (identity-and-access-api #117) and {@code /internal/accounts} (#122, #128). Each request is
  * recorded; the accounts endpoint answers the queued responses in order.
  */
 final class IdentityStub implements AutoCloseable {
 
     record Request(String method, String path, String authorization, String idempotencyKey,
-            String correlationId, String contentType, String body) { }
+            String correlationId, String contentType, String body, String query) { }
 
     record Answer(int status, String body) { }
 
@@ -59,7 +59,8 @@ final class IdentityStub implements AutoCloseable {
         requests.add(new Request(exchange.getRequestMethod(), path, headers.getFirst("Authorization"),
                 headers.getFirst("Idempotency-Key"), headers.getFirst("X-Correlation-Id"),
                 headers.getFirst("Content-Type"),
-                new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
+                new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8),
+                exchange.getRequestURI().getRawQuery()));
         Answer answer;
         if (path.equals("/internal/service-token")) {
             answer = tokenStatus != 200

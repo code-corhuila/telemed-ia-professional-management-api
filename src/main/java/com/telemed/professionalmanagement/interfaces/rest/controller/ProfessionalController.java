@@ -5,7 +5,6 @@ import java.util.UUID;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
 import com.telemed.professionalmanagement.application.port.in.PageRequest;
-import com.telemed.professionalmanagement.domain.Professional;
 import com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalPageResponse;
 import com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalResponse;
 import com.telemed.professionalmanagement.interfaces.rest.exception.ApiError.FieldDetail;
@@ -57,7 +56,6 @@ public class ProfessionalController {
 
     @GetMapping("/professionals/{professionalId}")
     public ResponseEntity<ProfessionalResponse> getProfessional(@PathVariable UUID professionalId) {
-        Professional professional = getProfessionalUseCase.getById(professionalId);
-        return ResponseEntity.ok(professionalRestMapper.toResponse(professional));
+        return ResponseEntity.ok(professionalRestMapper.toResponse(getProfessionalUseCase.getById(professionalId)));
     }
 }
