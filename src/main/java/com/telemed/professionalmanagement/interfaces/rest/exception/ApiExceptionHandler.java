@@ -19,6 +19,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import com.telemed.professionalmanagement.application.port.in.AccessDeniedException;
 import com.telemed.professionalmanagement.application.port.in.IdempotencyKeyReusedException;
 import com.telemed.professionalmanagement.application.port.out.IdentityAccountConflictException;
+import com.telemed.professionalmanagement.application.port.out.IdentityAccountRejectedException;
 import com.telemed.professionalmanagement.application.port.out.IdentityUnavailableException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalLicenseException;
@@ -98,6 +99,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler(IdempotencyKeyReusedException.class)
     ResponseEntity<ApiError> keyReused(IdempotencyKeyReusedException ex, HttpServletRequest request) {
         return respond(422, ApiError.of(ApiError.BUSINESS_RULE_VIOLATION, ex.getMessage(), trace(request)));
+    }
+
+    /** The identity service refused the account data, for example a password outside its policy. */
+    @ExceptionHandler(IdentityAccountRejectedException.class)
+    ResponseEntity<ApiError> accountRejected(IdentityAccountRejectedException ex, HttpServletRequest request) {
+        return respond(400, ApiError.of(ApiError.VALIDATION_ERROR, ex.getMessage(), trace(request)));
     }
 
     /** The identity service could not create the account; the reason goes to the log only. */
