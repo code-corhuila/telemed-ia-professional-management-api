@@ -232,6 +232,15 @@ components:
           $ref: '#/components/schemas/Id'
           description: External Identity & Access user identifier
 
+        fullName:
+          type: string
+          description: Full name of the Identity & Access account, read when the professionals are listed or read by id (DEC-008 of the Professional Service). Absent when Identity & Access does not return the account.
+
+        email:
+          type: string
+          format: email
+          description: E-mail of the Identity & Access account, read with `fullName` (DEC-008 of the Professional Service). Absent when Identity & Access does not return the account.
+
         licenseNumber:
           type: string
 

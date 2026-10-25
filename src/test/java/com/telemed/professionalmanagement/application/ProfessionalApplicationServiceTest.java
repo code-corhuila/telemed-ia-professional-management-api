@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -24,6 +25,10 @@ import com.telemed.professionalmanagement.application.port.in.AccessDeniedExcept
 import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.Page;
 import com.telemed.professionalmanagement.application.port.in.PageRequest;
+import com.telemed.professionalmanagement.application.port.in.ProfessionalView;
+import com.telemed.professionalmanagement.application.port.out.AccountDirectory;
+import com.telemed.professionalmanagement.application.port.out.AccountName;
+import com.telemed.professionalmanagement.application.port.out.IdentityUnavailableException;
 import com.telemed.professionalmanagement.application.port.out.ProfessionalRepositoryPort;
 import com.telemed.professionalmanagement.application.service.ProfessionalApplicationService;
 import com.telemed.professionalmanagement.domain.DuplicateProfessionalIdentityException;
@@ -45,6 +50,9 @@ class ProfessionalApplicationServiceTest {
 
     @Mock
     private ProfessionalRepositoryPort professionalRepositoryPort;
+
+    @Mock
+    private AccountDirectory accountDirectory;
 
     @InjectMocks
     private ProfessionalApplicationService professionalApplicationService;
@@ -93,12 +101,62 @@ class ProfessionalApplicationServiceTest {
                 stored(UUID.randomUUID(), OTHER_ACCOUNT, "DEF-456", 10)), request, 5);
         when(professionalRepositoryPort.findPage(request)).thenReturn(stored);
 
-        Page<Professional> page = professionalApplicationService.list(request);
+        Page<ProfessionalView> page = professionalApplicationService.list(request);
 
         assertEquals(2, page.items().size());
         assertEquals(2, page.page());
         assertEquals(5, page.total());
         assertEquals(3, page.totalPages());
+    }
+
+    @Test
+    void theListCarriesTheAccountNamesOfThePageAskedInOneCall() {
+        PageRequest request = new PageRequest(1, 20);
+        Professional ana = stored(UUID.randomUUID(), ACCOUNT, "ABC-123", 8);
+        Professional luis = stored(UUID.randomUUID(), OTHER_ACCOUNT, "DEF-456", 10);
+        when(professionalRepositoryPort.findPage(request)).thenReturn(Page.of(List.of(ana, luis), request, 2));
+        when(accountDirectory.namesOf(List.of(ACCOUNT, OTHER_ACCOUNT)))
+                .thenReturn(Map.of(ACCOUNT, new AccountName("Ana Gómez", "ana@telemed.test")));
+
+        Page<ProfessionalView> page = professionalApplicationService.list(request);
+
+        assertEquals(new ProfessionalView(ana, new AccountName("Ana Gómez", "ana@telemed.test")), page.items().get(0));
+        assertEquals(new ProfessionalView(luis, null), page.items().get(1));
+        verify(accountDirectory).namesOf(List.of(ACCOUNT, OTHER_ACCOUNT));
+    }
+
+    @Test
+    void theListIsReturnedWithoutNamesWhenIdentityDoesNotAnswer() {
+        PageRequest request = new PageRequest(1, 20);
+        Professional ana = stored(UUID.randomUUID(), ACCOUNT, "ABC-123", 8);
+        when(professionalRepositoryPort.findPage(request)).thenReturn(Page.of(List.of(ana), request, 1));
+        when(accountDirectory.namesOf(any())).thenThrow(new IdentityUnavailableException("down"));
+
+        Page<ProfessionalView> page = professionalApplicationService.list(request);
+
+        assertEquals(List.of(new ProfessionalView(ana, null)), page.items());
+    }
+
+    @Test
+    void anEmptyPageDoesNotAskForNames() {
+        PageRequest request = new PageRequest(1, 20);
+        when(professionalRepositoryPort.findPage(request)).thenReturn(Page.of(List.of(), request, 0));
+
+        assertEquals(0, professionalApplicationService.list(request).items().size());
+        verifyNoInteractions(accountDirectory);
+    }
+
+    @Test
+    void theDetailCarriesTheAccountNameOrNoneWhenIdentityDoesNotAnswer() {
+        Professional ana = stored(ID, ACCOUNT, "ABC-123", 8);
+        when(professionalRepositoryPort.findById(ID)).thenReturn(Optional.of(ana));
+        when(accountDirectory.namesOf(List.of(ACCOUNT)))
+                .thenReturn(Map.of(ACCOUNT, new AccountName("Ana Gómez", "ana@telemed.test")))
+                .thenThrow(new IdentityUnavailableException("down"));
+
+        assertEquals(new ProfessionalView(ana, new AccountName("Ana Gómez", "ana@telemed.test")),
+                professionalApplicationService.getById(ID));
+        assertEquals(new ProfessionalView(ana, null), professionalApplicationService.getById(ID));
     }
 
 }

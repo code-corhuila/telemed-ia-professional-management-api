@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
@@ -33,6 +35,8 @@ import com.atlassian.oai.validator.report.ValidationReport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telemed.professionalmanagement.application.port.in.PageRequest;
+import com.telemed.professionalmanagement.application.port.out.AccountDirectory;
+import com.telemed.professionalmanagement.application.port.out.AccountName;
 import com.telemed.professionalmanagement.application.port.out.IdentityAccountConflictException;
 import com.telemed.professionalmanagement.application.port.out.IdentityAccountPort;
 import com.telemed.professionalmanagement.domain.Professional;
@@ -101,6 +105,14 @@ class ProfessionalServiceContractTest {
                 }
                 return UUID.randomUUID();
             };
+        }
+
+        /** Identity's names (DEC-008): every account is a professional named after its id. */
+        @Bean
+        @Primary
+        AccountDirectory accountDirectoryDouble() {
+            return ids -> ids.stream().distinct().collect(Collectors.toMap(Function.identity(),
+                    id -> new AccountName("Profesional " + id.toString().substring(0, 8), "pro@telemed.test")));
         }
     }
 
@@ -221,6 +233,22 @@ class ProfessionalServiceContractTest {
             assertThat(professional.get("professionalType").asText()).isEqualTo("GENERAL_PRACTITIONER");
             assertThat(professional.get("status").asText()).isEqualTo("ACTIVE");
             assertThat(professional.has("specialtyId")).isFalse();
+        }
+
+        @Test
+        void theListAndTheDetailCarryTheAccountNameAndEmail() throws Exception {
+            Professional stored = seeded.get(0);
+            String name = "Profesional " + stored.getIdentityUserId().toString().substring(0, 8);
+
+            JsonNode detail = send(read(get(BASE + "/" + stored.getId()))).json();
+            JsonNode listed = send(read(get(BASE + "?limit=100"))).json().get("data");
+
+            assertThat(detail.get("fullName").asText()).isEqualTo(name);
+            assertThat(detail.get("email").asText()).isEqualTo("pro@telemed.test");
+            for (JsonNode professional : listed) {
+                assertThat(professional.get("fullName").asText()).startsWith("Profesional ");
+                assertThat(professional.get("email").asText()).isEqualTo("pro@telemed.test");
+            }
         }
     }
 

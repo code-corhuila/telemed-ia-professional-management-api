@@ -3,6 +3,8 @@ package com.telemed.professionalmanagement.interfaces.rest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
+import com.telemed.professionalmanagement.application.port.in.ProfessionalView;
+import com.telemed.professionalmanagement.application.port.out.AccountName;
 import com.telemed.professionalmanagement.domain.Professional;
 import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
 import com.telemed.professionalmanagement.interfaces.rest.controller.ProfessionalController;
@@ -52,11 +54,14 @@ class ProfessionalControllerWebTest {
 
     @Test
     void shouldReturnProfessionalById() throws Exception {
-        when(getProfessionalUseCase.getById(ID)).thenReturn(new Professional(ID, ACCOUNT, "ABC-123", 12, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE));
+        when(getProfessionalUseCase.getById(ID)).thenReturn(new ProfessionalView(new Professional(ID, ACCOUNT, "ABC-123", 12, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE),
+                new AccountName("Ana Gómez", "ana@telemed.test")));
 
         mockMvc.perform(get("/api/professionals/" + ID).header("Authorization", ADMIN_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ID.toString()))
+                .andExpect(jsonPath("$.fullName").value("Ana Gómez"))
+                .andExpect(jsonPath("$.email").value("ana@telemed.test"))
                 .andExpect(jsonPath("$.professionalType").value("GENERAL_PRACTITIONER"))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.specialtyId").doesNotExist());
@@ -93,14 +98,20 @@ class ProfessionalControllerWebTest {
     void shouldListProfessionals() throws Exception {
         when(listProfessionalsUseCase.list(new com.telemed.professionalmanagement.application.port.in.PageRequest(1, 20)))
                 .thenReturn(com.telemed.professionalmanagement.application.port.in.Page.of(List.of(
-                new Professional(UUID.randomUUID(), UUID.randomUUID(), "A1", 5, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE),
-                new Professional(UUID.randomUUID(), UUID.randomUUID(), "B2", 6, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE)
+                new ProfessionalView(new Professional(UUID.randomUUID(), UUID.randomUUID(), "A1", 5, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE),
+                        new AccountName("Ana Gómez", "ana@telemed.test")),
+                new ProfessionalView(new Professional(UUID.randomUUID(), UUID.randomUUID(), "B2", 6, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE),
+                        null)
         ), new com.telemed.professionalmanagement.application.port.in.PageRequest(1, 20), 42));
 
         mockMvc.perform(get("/api/professionals").header("Authorization", ADMIN_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].licenseNumber").value("A1"))
+                .andExpect(jsonPath("$.data[0].fullName").value("Ana Gómez"))
+                .andExpect(jsonPath("$.data[0].email").value("ana@telemed.test"))
+                .andExpect(jsonPath("$.data[1].fullName").doesNotExist())
+                .andExpect(jsonPath("$.data[1].email").doesNotExist())
                 .andExpect(jsonPath("$.meta.page").value(1))
                 .andExpect(jsonPath("$.meta.limit").value(20))
                 .andExpect(jsonPath("$.meta.total").value(42))
