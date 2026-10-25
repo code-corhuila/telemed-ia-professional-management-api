@@ -131,8 +131,13 @@ from the `role` claim (or a `roles` array). Any failure is `401 UNAUTHORIZED`. R
 professional is administrative (DEC-003): the use case answers
 `403 FORBIDDEN` to any caller without the `ADMIN` role. Any authenticated caller reads professionals.
 
-The identity service does not expose account creation to other services yet, so a registration
-answers `503 SERVICE_UNAVAILABLE` and stores nothing until it does (`UnavailableIdentityAccounts`).
+The account is created at `POST /internal/accounts` of the identity service (identity-and-access-api
+#122), inside the platform network, with a service token of the client `professional-management`
+(`POST /internal/service-token`) and the same `Idempotency-Key`. Identity's answers map to `409`
+(e-mail or document registered), `422` (key reused with other data) and `400` (data it rejects, such
+as a password over its limit). When identity cannot be reached or refuses the client, the answer is
+`503 SERVICE_UNAVAILABLE` and nothing is stored. Without `SERVICE_CLIENT_SECRET` the service starts
+and every registration answers `503` (`UnavailableIdentityAccounts`).
 
 ## Errors and correlation
 
