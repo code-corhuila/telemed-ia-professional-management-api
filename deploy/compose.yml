@@ -18,6 +18,13 @@ services:
       DB_URL: "jdbc:postgresql://postgres:5432/${PG_DATABASE:-telemed_ia}"
       DB_USERNAME: "${PROFESSIONAL_MANAGEMENT_APP_USER:-professional_management_app}"
       DB_PASSWORD: "${PROFESSIONAL_MANAGEMENT_APP_PASSWORD:?PROFESSIONAL_MANAGEMENT_APP_PASSWORD is required}"
+      # Identity service that creates the professionals' accounts (DEC-003): service
+      # identity-api, port 8081, reachable only inside the platform network.
+      IDENTITY_URL: "${IDENTITY_URL:-http://identity-api:8081}"
+      SERVICE_CLIENT_ID: "${PROFESSIONAL_MANAGEMENT_SERVICE_CLIENT_ID:-professional-management}"
+      # Delivered privately by the identity owner; lives only in env/<environment>.env.
+      # Without it, registrations answer 503.
+      SERVICE_CLIENT_SECRET: "${PROFESSIONAL_MANAGEMENT_SERVICE_CLIENT_SECRET:-}"
     expose:
       - "8080"
     networks:
