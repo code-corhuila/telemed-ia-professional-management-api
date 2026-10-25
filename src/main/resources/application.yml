@@ -25,6 +25,16 @@ server:
     include-stacktrace: never
     include-exception: false
 
+# Identity service, reached inside the platform network (DEC-003, identity-and-access-api
+# #117 and #122): creates the account of every registered professional.
+identity:
+  url: ${IDENTITY_URL:http://identity-api:8081}
+  client-id: ${SERVICE_CLIENT_ID:professional-management}
+  # Delivered privately by the identity owner; without it registrations answer 503.
+  client-secret: ${SERVICE_CLIENT_SECRET:}
+  request-timeout: ${IDENTITY_REQUEST_TIMEOUT:5s}
+  token-refresh-margin: 60s
+
 management:
   endpoints:
     web:
