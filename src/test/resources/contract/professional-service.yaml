@@ -20,6 +20,10 @@ paths:
   /:
     get:
       summary: Listar profesionales
+      description: |
+        Each professional carries the `fullName` and `email` of its account, read from
+        Identity & Access with one call per page (DEC-008). When Identity & Access does
+        not answer, the page is returned without them.
       tags: [Professionals]
       security:
         - bearerAuth: []
@@ -41,6 +45,9 @@ paths:
   /{id}:
     get:
       summary: Obtener profesional por ID
+      description: |
+        Carries the `fullName` and `email` of the account when Identity & Access returns
+        it (DEC-008).
       tags: [Professionals]
       security:
         - bearerAuth: []
