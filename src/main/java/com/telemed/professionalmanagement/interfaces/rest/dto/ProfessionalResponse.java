@@ -2,6 +2,12 @@ package com.telemed.professionalmanagement.interfaces.rest.dto;
 
 import java.util.UUID;
 
-public record ProfessionalResponse(UUID id, UUID identityUserId, String licenseNumber, Integer yearsExperience,
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+/** {@code fullName} and {@code email} are left out when the identity domain did not return them (DEC-008). */
+public record ProfessionalResponse(UUID id, UUID identityUserId,
+                                   @JsonInclude(JsonInclude.Include.NON_NULL) String fullName,
+                                   @JsonInclude(JsonInclude.Include.NON_NULL) String email,
+                                   String licenseNumber, Integer yearsExperience,
                                    String professionalType, String status) {
 }
