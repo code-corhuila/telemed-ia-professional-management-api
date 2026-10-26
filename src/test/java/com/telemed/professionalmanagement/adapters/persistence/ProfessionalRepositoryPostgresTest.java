@@ -103,12 +103,12 @@ class ProfessionalRepositoryPostgresTest {
         long rows = jdbc.queryForObject("SELECT count(*) FROM professional_management.professional", Long.class);
 
         Page<Professional> first = adapter.findPage(new PageRequest(1, 2));
-        Page<Professional> second = adapter.findPage(new PageRequest(2, 1));
+        Page<Professional> third = adapter.findPage(new PageRequest(3, 1));
 
         assertThat(first.total()).isEqualTo(rows);
         assertThat(first.items()).extracting(Professional::getLicenseNumber)
                 .containsExactly(prefix + "new", prefix + "mid");
-        assertThat(second.items()).extracting(Professional::getLicenseNumber).containsExactly(prefix + "old");
+        assertThat(third.items()).extracting(Professional::getLicenseNumber).containsExactly(prefix + "old");
         assertThat(adapter.findPage(new PageRequest(1000, 100)).items()).isEmpty();
     }
 
