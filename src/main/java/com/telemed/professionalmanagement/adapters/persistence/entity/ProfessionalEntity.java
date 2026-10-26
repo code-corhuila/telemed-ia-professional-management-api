@@ -1,5 +1,6 @@
 package com.telemed.professionalmanagement.adapters.persistence.entity;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -39,6 +40,10 @@ public class ProfessionalEntity {
 
     @Column(name = "status", nullable = false, length = 20)
     private String status;
+
+    /** Set by the database when the profile is inserted (DEC-010); only read to order the list. */
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private OffsetDateTime createdAt;
 
     protected ProfessionalEntity() {
     }
@@ -99,5 +104,9 @@ public class ProfessionalEntity {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
     }
 }
