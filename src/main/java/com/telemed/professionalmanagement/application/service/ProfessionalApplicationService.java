@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
 import com.telemed.professionalmanagement.application.port.in.Page;
@@ -22,7 +23,8 @@ import com.telemed.professionalmanagement.domain.ProfessionalNotFoundException;
 
 /**
  * Reads the professionals with the names of their accounts (DEC-008): one identity call per
- * page, and the professionals are returned without names when identity cannot answer.
+ * page, and the professionals are returned without names when identity cannot answer. The
+ * account e-mail is kept only for administrators (DEC-009).
  */
 @Service
 public class ProfessionalApplicationService implements ListProfessionalsUseCase, GetProfessionalUseCase {
@@ -39,19 +41,19 @@ public class ProfessionalApplicationService implements ListProfessionalsUseCase,
     }
 
     @Override
-    public Page<ProfessionalView> list(PageRequest page) {
+    public Page<ProfessionalView> list(Caller caller, PageRequest page) {
         Page<Professional> stored = professionalRepositoryPort.findPage(page);
-        return new Page<>(withNames(stored.items()), stored.page(), stored.limit(), stored.total());
+        return new Page<>(withNames(caller, stored.items()), stored.page(), stored.limit(), stored.total());
     }
 
     @Override
-    public ProfessionalView getById(UUID professionalId) {
+    public ProfessionalView getById(Caller caller, UUID professionalId) {
         Professional professional = professionalRepositoryPort.findById(professionalId)
                 .orElseThrow(() -> new ProfessionalNotFoundException(professionalId));
-        return withNames(List.of(professional)).get(0);
+        return withNames(caller, List.of(professional)).get(0);
     }
 
-    private List<ProfessionalView> withNames(List<Professional> professionals) {
+    private List<ProfessionalView> withNames(Caller caller, List<Professional> professionals) {
         Map<UUID, AccountName> names = Map.of();
         if (!professionals.isEmpty()) {
             try {
@@ -61,8 +63,15 @@ public class ProfessionalApplicationService implements ListProfessionalsUseCase,
             }
         }
         Map<UUID, AccountName> found = names;
+        boolean withEmail = caller.hasRole(Caller.ADMIN);
         return professionals.stream()
-                .map(professional -> new ProfessionalView(professional, found.get(professional.getIdentityUserId())))
+                .map(professional -> new ProfessionalView(professional,
+                        visibleTo(withEmail, found.get(professional.getIdentityUserId()))))
                 .toList();
+    }
+
+    /** DEC-009: the e-mail is personal data that only the administrator needs. */
+    private static AccountName visibleTo(boolean withEmail, AccountName account) {
+        return account == null || withEmail ? account : new AccountName(account.fullName(), null);
     }
 }

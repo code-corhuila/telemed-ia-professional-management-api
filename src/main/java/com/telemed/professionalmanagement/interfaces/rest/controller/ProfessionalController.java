@@ -5,11 +5,13 @@ import java.util.UUID;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
 import com.telemed.professionalmanagement.application.port.in.PageRequest;
+import com.telemed.professionalmanagement.interfaces.rest.auth.AuthFilter;
 import com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalPageResponse;
 import com.telemed.professionalmanagement.interfaces.rest.dto.ProfessionalResponse;
 import com.telemed.professionalmanagement.interfaces.rest.exception.ApiError.FieldDetail;
 import com.telemed.professionalmanagement.interfaces.rest.exception.InvalidRequestException;
 import com.telemed.professionalmanagement.interfaces.rest.mapper.ProfessionalRestMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,7 +41,8 @@ public class ProfessionalController {
     @GetMapping("/professionals")
     public ResponseEntity<ProfessionalPageResponse> listProfessionals(
             @RequestParam(name = "page", defaultValue = "1") int page,
-            @RequestParam(name = "limit", defaultValue = "" + PageRequest.DEFAULT_LIMIT) int limit) {
+            @RequestParam(name = "limit", defaultValue = "" + PageRequest.DEFAULT_LIMIT) int limit,
+            HttpServletRequest http) {
         List<FieldDetail> invalid = new ArrayList<>();
         if (page < 1) {
             invalid.add(new FieldDetail("page", "must be 1 or greater"));
@@ -51,11 +54,13 @@ public class ProfessionalController {
             throw new InvalidRequestException(invalid);
         }
         return ResponseEntity.ok(professionalRestMapper.toPageResponse(
-                listProfessionalsUseCase.list(new PageRequest(page, limit))));
+                listProfessionalsUseCase.list(AuthFilter.currentCaller(http), new PageRequest(page, limit))));
     }
 
     @GetMapping("/professionals/{professionalId}")
-    public ResponseEntity<ProfessionalResponse> getProfessional(@PathVariable UUID professionalId) {
-        return ResponseEntity.ok(professionalRestMapper.toResponse(getProfessionalUseCase.getById(professionalId)));
+    public ResponseEntity<ProfessionalResponse> getProfessional(@PathVariable UUID professionalId,
+                                                                HttpServletRequest http) {
+        return ResponseEntity.ok(professionalRestMapper.toResponse(
+                getProfessionalUseCase.getById(AuthFilter.currentCaller(http), professionalId)));
     }
 }
