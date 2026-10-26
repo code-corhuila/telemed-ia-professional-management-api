@@ -3,6 +3,8 @@ package com.telemed.professionalmanagement.adapters.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -91,21 +93,64 @@ class ProfessionalRepositoryPostgresTest {
     }
 
     @Test
-    void aPageIsOrderedByLicenseAndCountsTheWholeTable() {
+    void aPageGoesFromTheNewestToTheOldestAndCountsTheWholeTable() {
+        // DEC-010. Rows written in one test transaction share now(), so each gets its own
+        // registration time, later than any other row of the table.
         String prefix = "IT-PAGE-" + UUID.randomUUID() + "-";
-        adapter.save(Professional.register(UUID.randomUUID(), prefix + "c", 1));
-        adapter.save(Professional.register(UUID.randomUUID(), prefix + "a", 1));
-        adapter.save(Professional.register(UUID.randomUUID(), prefix + "b", 1));
+        registeredAt(adapter.save(Professional.register(UUID.randomUUID(), prefix + "old", 1)), "2999-01-01T00:00:00Z");
+        registeredAt(adapter.save(Professional.register(UUID.randomUUID(), prefix + "new", 1)), "2999-01-03T00:00:00Z");
+        registeredAt(adapter.save(Professional.register(UUID.randomUUID(), prefix + "mid", 1)), "2999-01-02T00:00:00Z");
         long rows = jdbc.queryForObject("SELECT count(*) FROM professional_management.professional", Long.class);
 
         Page<Professional> first = adapter.findPage(new PageRequest(1, 2));
-        Page<Professional> all = adapter.findPage(new PageRequest(1, 100));
+        Page<Professional> second = adapter.findPage(new PageRequest(2, 1));
 
         assertThat(first.total()).isEqualTo(rows);
-        assertThat(first.items()).hasSize(2);
-        assertThat(all.items()).extracting(Professional::getLicenseNumber).isSorted()
-                .containsSubsequence(prefix + "a", prefix + "b", prefix + "c");
+        assertThat(first.items()).extracting(Professional::getLicenseNumber)
+                .containsExactly(prefix + "new", prefix + "mid");
+        assertThat(second.items()).extracting(Professional::getLicenseNumber).containsExactly(prefix + "old");
         assertThat(adapter.findPage(new PageRequest(1000, 100)).items()).isEmpty();
+    }
+
+    @Test
+    void profilesRegisteredAtTheSameInstantFollowTheirIdentifiers() {
+        String prefix = "IT-TIE-" + UUID.randomUUID() + "-";
+        for (String suffix : List.of("a", "b", "c")) {
+            registeredAt(adapter.save(Professional.register(UUID.randomUUID(), prefix + suffix, 1)),
+                    "2999-02-01T00:00:00Z");
+        }
+
+        List<Professional> page = adapter.findPage(new PageRequest(1, 3)).items();
+
+        // PostgreSQL compares UUIDs byte by byte: the order of their lowercase text.
+        assertThat(page).extracting(Professional::getLicenseNumber).allMatch(license -> license.startsWith(prefix));
+        assertThat(page).extracting(professional -> professional.getId().toString())
+                .isSortedAccordingTo(Comparator.reverseOrder());
+    }
+
+    @Test
+    void theDatabaseRecordsWhenAProfileIsRegistered() {
+        Professional saved = adapter.save(Professional.register(UUID.randomUUID(), license(), 1));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT created_at = now() FROM professional_management.professional WHERE id = ?",
+                Boolean.class, saved.getId())).isTrue();
+    }
+
+    @Test
+    void aStatusChangeKeepsTheRegistrationTime() {
+        Professional saved = adapter.save(Professional.register(UUID.randomUUID(), license(), 1));
+        registeredAt(saved, "2020-05-06T07:08:09Z");
+
+        adapter.save(saved.withStatus(ProfessionalStatus.INACTIVE));
+
+        assertThat(jdbc.queryForObject("SELECT created_at = '2020-05-06T07:08:09Z'::timestamptz"
+                + " FROM professional_management.professional WHERE id = ?", Boolean.class, saved.getId())).isTrue();
+    }
+
+    private void registeredAt(Professional professional, String instant) {
+        jdbc.update("UPDATE professional_management.professional SET created_at = ?::timestamptz WHERE id = ?",
+                instant, professional.getId());
     }
 
     @Test
