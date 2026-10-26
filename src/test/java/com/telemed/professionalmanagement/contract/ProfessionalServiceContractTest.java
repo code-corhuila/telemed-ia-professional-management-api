@@ -18,6 +18,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -236,18 +238,37 @@ class ProfessionalServiceContractTest {
         }
 
         @Test
-        void theListAndTheDetailCarryTheAccountNameAndEmail() throws Exception {
+        void anAdministratorReadsTheAccountNameAndEmail() throws Exception {
             Professional stored = seeded.get(0);
             String name = "Profesional " + stored.getIdentityUserId().toString().substring(0, 8);
 
-            JsonNode detail = send(read(get(BASE + "/" + stored.getId()))).json();
-            JsonNode listed = send(read(get(BASE + "?limit=100"))).json().get("data");
+            JsonNode detail = send(get(BASE + "/" + stored.getId()).header("Authorization", ADMIN)).json();
+            JsonNode listed = send(get(BASE + "?limit=100").header("Authorization", ADMIN)).json().get("data");
 
             assertThat(detail.get("fullName").asText()).isEqualTo(name);
             assertThat(detail.get("email").asText()).isEqualTo("pro@telemed.test");
             for (JsonNode professional : listed) {
                 assertThat(professional.get("fullName").asText()).startsWith("Profesional ");
                 assertThat(professional.get("email").asText()).isEqualTo("pro@telemed.test");
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"PATIENT", "PROFESSIONAL"})
+        void anyOtherRoleReadsTheNameButNotTheEmail(String role) throws Exception {
+            // DEC-009: the e-mail is returned only to administrators (OWASP API3, data minimization).
+            Professional stored = seeded.get(0);
+            String token = TestTokens.bearer(reader, role);
+
+            JsonNode detail = send(get(BASE + "/" + stored.getId()).header("Authorization", token)).json();
+            JsonNode listed = send(get(BASE + "?limit=100").header("Authorization", token)).json().get("data");
+
+            assertThat(detail.get("fullName").asText()).startsWith("Profesional ");
+            assertThat(detail.has("email")).isFalse();
+            assertThat(listed.size()).isPositive();
+            for (JsonNode professional : listed) {
+                assertThat(professional.get("fullName").asText()).startsWith("Profesional ");
+                assertThat(professional.has("email")).isFalse();
             }
         }
     }

@@ -23,7 +23,8 @@ paths:
       description: |
         Each professional carries the `fullName` and `email` of its account, read from
         Identity & Access with one call per page (DEC-008). When Identity & Access does
-        not answer, the page is returned without them.
+        not answer, the page is returned without them. `email` is returned only to
+        callers with the `ADMIN` role (DEC-009).
       tags: [Professionals]
       security:
         - bearerAuth: []
@@ -47,7 +48,7 @@ paths:
       summary: Obtener profesional por ID
       description: |
         Carries the `fullName` and `email` of the account when Identity & Access returns
-        it (DEC-008).
+        it (DEC-008). `email` is returned only to callers with the `ADMIN` role (DEC-009).
       tags: [Professionals]
       security:
         - bearerAuth: []

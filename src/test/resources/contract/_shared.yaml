@@ -239,7 +239,7 @@ components:
         email:
           type: string
           format: email
-          description: E-mail of the Identity & Access account, read with `fullName` (DEC-008 of the Professional Service). Absent when Identity & Access does not return the account.
+          description: E-mail of the Identity & Access account, read with `fullName` (DEC-008 of the Professional Service). Returned only to callers with the `ADMIN` role (DEC-009); absent for other roles and when Identity & Access does not return the account.
 
         licenseNumber:
           type: string

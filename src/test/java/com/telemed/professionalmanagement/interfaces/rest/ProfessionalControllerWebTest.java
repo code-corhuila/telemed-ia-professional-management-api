@@ -1,6 +1,7 @@
 package com.telemed.professionalmanagement.interfaces.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.telemed.professionalmanagement.application.port.in.Caller;
 import com.telemed.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import com.telemed.professionalmanagement.application.port.in.ListProfessionalsUseCase;
 import com.telemed.professionalmanagement.application.port.in.ProfessionalView;
@@ -19,9 +20,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -54,7 +58,7 @@ class ProfessionalControllerWebTest {
 
     @Test
     void shouldReturnProfessionalById() throws Exception {
-        when(getProfessionalUseCase.getById(ID)).thenReturn(new ProfessionalView(new Professional(ID, ACCOUNT, "ABC-123", 12, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE),
+        when(getProfessionalUseCase.getById(any(), eq(ID))).thenReturn(new ProfessionalView(new Professional(ID, ACCOUNT, "ABC-123", 12, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE),
                 new AccountName("Ana Gómez", "ana@telemed.test")));
 
         mockMvc.perform(get("/api/professionals/" + ID).header("Authorization", ADMIN_TOKEN))
@@ -69,7 +73,7 @@ class ProfessionalControllerWebTest {
 
     @Test
     void shouldReturn404WhenProfessionalDoesNotExist() throws Exception {
-        when(getProfessionalUseCase.getById(MISSING)).thenThrow(new ProfessionalNotFoundException(MISSING));
+        when(getProfessionalUseCase.getById(any(), eq(MISSING))).thenThrow(new ProfessionalNotFoundException(MISSING));
 
         mockMvc.perform(get("/api/professionals/" + MISSING).header("Authorization", ADMIN_TOKEN).header("X-Correlation-Id", "trace-404"))
                 .andExpect(status().isNotFound())
@@ -96,7 +100,7 @@ class ProfessionalControllerWebTest {
 
     @Test
     void shouldListProfessionals() throws Exception {
-        when(listProfessionalsUseCase.list(new com.telemed.professionalmanagement.application.port.in.PageRequest(1, 20)))
+        when(listProfessionalsUseCase.list(any(), eq(new com.telemed.professionalmanagement.application.port.in.PageRequest(1, 20))))
                 .thenReturn(com.telemed.professionalmanagement.application.port.in.Page.of(List.of(
                 new ProfessionalView(new Professional(UUID.randomUUID(), UUID.randomUUID(), "A1", 5, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER, com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE),
                         new AccountName("Ana Gómez", "ana@telemed.test")),
@@ -122,7 +126,7 @@ class ProfessionalControllerWebTest {
     void theListPassesTheRequestedPageToTheUseCase() throws Exception {
         com.telemed.professionalmanagement.application.port.in.PageRequest request =
                 new com.telemed.professionalmanagement.application.port.in.PageRequest(3, 100);
-        when(listProfessionalsUseCase.list(request))
+        when(listProfessionalsUseCase.list(any(), eq(request)))
                 .thenReturn(com.telemed.professionalmanagement.application.port.in.Page.of(List.of(), request, 0));
 
         mockMvc.perform(get("/api/professionals?page=3&limit=100").header("Authorization", ADMIN_TOKEN))
@@ -146,6 +150,26 @@ class ProfessionalControllerWebTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details[0].field").value("limit"));
         org.mockito.Mockito.verifyNoInteractions(listProfessionalsUseCase);
+    }
+
+    @Test
+    void theListAndTheDetailReceiveTheCallerOfTheToken() throws Exception {
+        // DEC-009: the use case decides what the caller may see, so it needs who calls.
+        Caller patient = new Caller("patient-1", Set.of("PATIENT"));
+        com.telemed.professionalmanagement.application.port.in.PageRequest request =
+                new com.telemed.professionalmanagement.application.port.in.PageRequest(1, 20);
+        when(listProfessionalsUseCase.list(any(), any()))
+                .thenReturn(com.telemed.professionalmanagement.application.port.in.Page.of(List.of(), request, 0));
+        when(getProfessionalUseCase.getById(any(), any())).thenReturn(new ProfessionalView(new Professional(ID, ACCOUNT,
+                "ABC-123", 12, com.telemed.professionalmanagement.domain.ProfessionalType.GENERAL_PRACTITIONER,
+                com.telemed.professionalmanagement.domain.ProfessionalStatus.ACTIVE), null));
+        String token = com.telemed.professionalmanagement.interfaces.rest.auth.TestTokens.bearer("patient-1", "PATIENT");
+
+        mockMvc.perform(get("/api/professionals").header("Authorization", token)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/professionals/" + ID).header("Authorization", token)).andExpect(status().isOk());
+
+        verify(listProfessionalsUseCase).list(patient, request);
+        verify(getProfessionalUseCase).getById(patient, ID);
     }
 
     @Test
