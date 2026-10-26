@@ -153,6 +153,13 @@ routes), `CONFLICT` (409), `BUSINESS_RULE_VIOLATION` (422) and `INTERNAL_ERROR` 
 message; the cause goes to the log only). The service reuses the received `X-Correlation-Id` or
 generates one, returns it, uses it as `traceId`, and writes it on every JSON log line.
 
+## Explicit limits
+
+Declared in `src/main/resources/application.yml` (numeral 5.3.10): 5 s to receive the request
+headers, 60 s for idle keep-alive connections, a pool of 10 connections with 5 s of wait,
+`statement_timeout` of 5 s on every connection, graceful shutdown with 20 s, and 5 s per call to
+the identity service (`IDENTITY_REQUEST_TIMEOUT`).
+
 ## Swagger / OpenAPI
 
 Swagger UI is available at:
