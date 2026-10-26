@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.telemed.professionalmanagement.application.port.in.Page;
 import com.telemed.professionalmanagement.application.port.in.PageRequest;
@@ -18,12 +19,15 @@ import com.telemed.professionalmanagement.domain.Professional;
 
 /**
  * The repository port in memory, for the HTTP-level contract checks (Anexo C). The SQL is
- * covered by {@code ProfessionalRepositoryPostgresTest}. Same order as the adapter: by license.
+ * covered by {@code ProfessionalRepositoryPostgresTest}. Same order as the adapter: from the most
+ * recently registered profile to the oldest (DEC-010).
  */
 class InMemoryProfessionals implements ProfessionalRepositoryPort, ProfessionalRegistrationStore {
 
     private final Map<UUID, Professional> rows = new ConcurrentHashMap<>();
     private final Map<String, StoredRegistration> keys = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> registered = new ConcurrentHashMap<>();
+    private final AtomicLong clock = new AtomicLong();
 
     @Override
     public synchronized Professional save(Professional professional) {
@@ -42,6 +46,7 @@ class InMemoryProfessionals implements ProfessionalRepositoryPort, ProfessionalR
                 professional.getLicenseNumber(), professional.getYearsExperience(),
                 professional.getProfessionalType(), professional.getStatus());
         rows.put(stored.getId(), stored);
+        registered.put(stored.getId(), clock.incrementAndGet());
         return stored;
     }
 
@@ -53,7 +58,7 @@ class InMemoryProfessionals implements ProfessionalRepositoryPort, ProfessionalR
     @Override
     public Page<Professional> findPage(PageRequest page) {
         List<Professional> ordered = rows.values().stream()
-                .sorted(Comparator.comparing(Professional::getLicenseNumber))
+                .sorted(Comparator.comparing((Professional row) -> registered.get(row.getId())).reversed())
                 .toList();
         List<Professional> items = ordered.stream().skip(page.offset()).limit(page.limit()).toList();
         return Page.of(items, page, ordered.size());

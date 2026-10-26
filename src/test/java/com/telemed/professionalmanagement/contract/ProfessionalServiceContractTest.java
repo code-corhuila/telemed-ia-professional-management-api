@@ -299,14 +299,18 @@ class ProfessionalServiceContractTest {
         }
 
         @Test
-        void pagesDoNotOverlapAndFollowTheLicenseOrder() throws Exception {
+        void pagesDoNotOverlapAndGoFromTheNewestToTheOldest() throws Exception {
+            int total = send(read(get(BASE))).json().get("meta").get("total").asInt();
             List<String> licenses = new ArrayList<>();
-            for (int page = 1; page <= 3; page++) {
+            for (int page = 1; page <= total; page++) {
                 send(read(get(BASE + "?limit=1&page=" + page))).json().get("data")
                         .forEach(professional -> licenses.add(professional.get("licenseNumber").asText()));
             }
 
-            assertThat(licenses).containsExactly("CT-0001", "CT-0002", "CT-0003");
+            // Seeded in the order CT-0003, CT-0001, CT-0002; other tests may register newer ones.
+            assertThat(licenses).hasSize(total).doesNotHaveDuplicates();
+            assertThat(licenses.stream().filter(license -> license.startsWith("CT-000")))
+                    .containsExactly("CT-0002", "CT-0001", "CT-0003");
         }
 
         @Test
