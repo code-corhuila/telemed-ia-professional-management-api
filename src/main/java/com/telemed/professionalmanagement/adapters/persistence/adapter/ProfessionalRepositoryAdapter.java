@@ -21,7 +21,8 @@ import java.util.Optional;
 @Component
 public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort {
 
-    private static final Sort BY_LICENSE = Sort.by("licenseNumber");
+    /** DEC-010: from the most recently registered profile to the oldest; the id keeps pages stable. */
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
 
     private final ProfessionalJpaRepository professionalJpaRepository;
     private final ProfessionalPersistenceMapper mapper;
@@ -59,7 +60,7 @@ public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort
     @Override
     public Page<Professional> findPage(PageRequest page) {
         org.springframework.data.domain.Page<ProfessionalEntity> found = professionalJpaRepository.findAll(
-                org.springframework.data.domain.PageRequest.of(page.page() - 1, page.limit(), BY_LICENSE));
+                org.springframework.data.domain.PageRequest.of(page.page() - 1, page.limit(), NEWEST_FIRST));
         return Page.of(found.getContent().stream().map(mapper::toDomain).toList(), page, found.getTotalElements());
     }
 
