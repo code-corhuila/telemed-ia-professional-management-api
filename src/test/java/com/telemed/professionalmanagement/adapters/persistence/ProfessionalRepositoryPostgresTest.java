@@ -152,6 +152,12 @@ class ProfessionalRepositoryPostgresTest {
     }
 
     @Test
+    void everyConnectionCarriesTheStatementLimit() {
+        // Numeral 5.3.10: hikari.connection-init-sql of application.yml.
+        assertThat(jdbc.queryForObject("SHOW statement_timeout", String.class)).isEqualTo("5s");
+    }
+
+    @Test
     void theSchemaOnlyAcceptsGeneralPractitioners() {
         assertThatThrownBy(() -> jdbc.update("""
                 INSERT INTO professional_management.professional
