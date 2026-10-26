@@ -117,8 +117,8 @@ docker compose -f deploy/compose.yml up -d --build
 | Method and route | Purpose | Request body | Successful response | Relevant errors |
 |---|---|---|---|---|
 | `GET /health` | Liveness, without a token (Anexo C). | — | `200 OK` `{"status":"UP"}` | — |
-| `GET /api/professionals?page=&limit=` | List professionals by license number, one page at a time (`page` from 1, `limit` 1 to 100, default 20), each with `fullName` and `email` of its account (DEC-008). | — | `200 OK` `{data, meta: {page, limit, total, totalPages}}` | `400 Bad Request` (page or limit out of range) |
-| `GET /api/professionals/{professionalId}` | Get a professional by its UUID, with `fullName` and `email` of its account (DEC-008). | — | `200 OK` | `400 Bad Request` (not a UUID), `404 Not Found` |
+| `GET /api/professionals?page=&limit=` | List professionals by license number, one page at a time (`page` from 1, `limit` 1 to 100, default 20), each with `fullName` of its account, and `email` only for `ADMIN` (DEC-008, DEC-009). | — | `200 OK` `{data, meta: {page, limit, total, totalPages}}` | `400 Bad Request` (page or limit out of range) |
+| `GET /api/professionals/{professionalId}` | Get a professional by its UUID, with `fullName` of its account, and `email` only for `ADMIN` (DEC-008, DEC-009). | — | `200 OK` | `400 Bad Request` (not a UUID), `404 Not Found` |
 | `PATCH /api/professionals/{professionalId}/status` | Change the profile status (FR-011, ADR-013, DEC-007). `ADMIN` only; the account and appointment availability are not touched. | `{"status": "ACTIVE" \| "INACTIVE"}`, no other field | `200 OK` with the professional; the same status again changes nothing | `400`, `403`, `404` |
 | `POST /api/professionals/admin/register` | Register a professional: the account in the identity domain and an `ACTIVE` general practitioner profile (DEC-003). `ADMIN` only. | header `Idempotency-Key` (8 to 128 characters); `fullName`, `email`, `identityDocument`, `password` (8 or more), `licenseNumber`, `yearsExperience` | `201 Created` with `Location`; `200 OK` with the same professional when the key is repeated | `400` (each invalid field, the header included), `403`, `409` (e-mail, document or license already registered), `422` (key reused with another body), `503` (identity unavailable) |
 
@@ -142,6 +142,8 @@ and every registration answers `503` (`UnavailableIdentityAccounts`).
 The list and the detail read the full name and e-mail of the accounts from the same service, one
 call per page (`GET /internal/accounts?ids=...`, identity-and-access-api #128). When identity does
 not answer, or without the secret, the professionals are returned without `fullName` and `email`.
+The e-mail is returned only when the caller is an administrator; patients and professionals
+receive the name without it (DEC-009).
 
 ## Errors and correlation
 
