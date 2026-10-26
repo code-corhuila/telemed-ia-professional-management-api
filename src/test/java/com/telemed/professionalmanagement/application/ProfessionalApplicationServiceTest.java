@@ -43,6 +43,8 @@ import com.telemed.professionalmanagement.domain.ProfessionalType;
 class ProfessionalApplicationServiceTest {
 
     private static final Caller ADMIN = new Caller("admin-1", Set.of(Caller.ADMIN));
+    private static final Caller PATIENT = new Caller("patient-1", Set.of("PATIENT"));
+    private static final Caller PROFESSIONAL = new Caller("professional-1", Set.of("PROFESSIONAL"));
 
     private static final UUID ID = UUID.fromString("c0000000-0000-4000-8000-000000000007");
     private static final UUID ACCOUNT = UUID.fromString("c1000000-0000-4000-8000-000000000100");
@@ -90,7 +92,7 @@ class ProfessionalApplicationServiceTest {
     @Test
     void shouldReturnProfessionalNotFoundWhenMissing() {
         when(professionalRepositoryPort.findById(ID)).thenReturn(Optional.empty());
-        assertThrows(ProfessionalNotFoundException.class, () -> professionalApplicationService.getById(ID));
+        assertThrows(ProfessionalNotFoundException.class, () -> professionalApplicationService.getById(ADMIN, ID));
     }
 
     @Test
@@ -101,7 +103,7 @@ class ProfessionalApplicationServiceTest {
                 stored(UUID.randomUUID(), OTHER_ACCOUNT, "DEF-456", 10)), request, 5);
         when(professionalRepositoryPort.findPage(request)).thenReturn(stored);
 
-        Page<ProfessionalView> page = professionalApplicationService.list(request);
+        Page<ProfessionalView> page = professionalApplicationService.list(ADMIN, request);
 
         assertEquals(2, page.items().size());
         assertEquals(2, page.page());
@@ -118,7 +120,7 @@ class ProfessionalApplicationServiceTest {
         when(accountDirectory.namesOf(List.of(ACCOUNT, OTHER_ACCOUNT)))
                 .thenReturn(Map.of(ACCOUNT, new AccountName("Ana Gómez", "ana@telemed.test")));
 
-        Page<ProfessionalView> page = professionalApplicationService.list(request);
+        Page<ProfessionalView> page = professionalApplicationService.list(ADMIN, request);
 
         assertEquals(new ProfessionalView(ana, new AccountName("Ana Gómez", "ana@telemed.test")), page.items().get(0));
         assertEquals(new ProfessionalView(luis, null), page.items().get(1));
@@ -132,7 +134,7 @@ class ProfessionalApplicationServiceTest {
         when(professionalRepositoryPort.findPage(request)).thenReturn(Page.of(List.of(ana), request, 1));
         when(accountDirectory.namesOf(any())).thenThrow(new IdentityUnavailableException("down"));
 
-        Page<ProfessionalView> page = professionalApplicationService.list(request);
+        Page<ProfessionalView> page = professionalApplicationService.list(ADMIN, request);
 
         assertEquals(List.of(new ProfessionalView(ana, null)), page.items());
     }
@@ -142,7 +144,7 @@ class ProfessionalApplicationServiceTest {
         PageRequest request = new PageRequest(1, 20);
         when(professionalRepositoryPort.findPage(request)).thenReturn(Page.of(List.of(), request, 0));
 
-        assertEquals(0, professionalApplicationService.list(request).items().size());
+        assertEquals(0, professionalApplicationService.list(ADMIN, request).items().size());
         verifyNoInteractions(accountDirectory);
     }
 
@@ -155,8 +157,40 @@ class ProfessionalApplicationServiceTest {
                 .thenThrow(new IdentityUnavailableException("down"));
 
         assertEquals(new ProfessionalView(ana, new AccountName("Ana Gómez", "ana@telemed.test")),
-                professionalApplicationService.getById(ID));
-        assertEquals(new ProfessionalView(ana, null), professionalApplicationService.getById(ID));
+                professionalApplicationService.getById(ADMIN, ID));
+        assertEquals(new ProfessionalView(ana, null), professionalApplicationService.getById(ADMIN, ID));
+    }
+
+    @Test
+    void onlyAnAdministratorReadsTheAccountEmailInTheList() {
+        // DEC-009: the e-mail is personal data the other roles do not need; the name stays.
+        PageRequest request = new PageRequest(1, 20);
+        Professional ana = stored(UUID.randomUUID(), ACCOUNT, "ABC-123", 8);
+        when(professionalRepositoryPort.findPage(request)).thenReturn(Page.of(List.of(ana), request, 1));
+        when(accountDirectory.namesOf(List.of(ACCOUNT)))
+                .thenReturn(Map.of(ACCOUNT, new AccountName("Ana Gómez", "ana@telemed.test")));
+
+        assertEquals(List.of(new ProfessionalView(ana, new AccountName("Ana Gómez", null))),
+                professionalApplicationService.list(PATIENT, request).items());
+        assertEquals(List.of(new ProfessionalView(ana, new AccountName("Ana Gómez", null))),
+                professionalApplicationService.list(PROFESSIONAL, request).items());
+        assertEquals(List.of(new ProfessionalView(ana, new AccountName("Ana Gómez", "ana@telemed.test"))),
+                professionalApplicationService.list(ADMIN, request).items());
+    }
+
+    @Test
+    void onlyAnAdministratorReadsTheAccountEmailInTheDetail() {
+        Professional ana = stored(ID, ACCOUNT, "ABC-123", 8);
+        when(professionalRepositoryPort.findById(ID)).thenReturn(Optional.of(ana));
+        when(accountDirectory.namesOf(List.of(ACCOUNT)))
+                .thenReturn(Map.of(ACCOUNT, new AccountName("Ana Gómez", "ana@telemed.test")));
+
+        assertEquals(new ProfessionalView(ana, new AccountName("Ana Gómez", null)),
+                professionalApplicationService.getById(PATIENT, ID));
+        assertEquals(new ProfessionalView(ana, new AccountName("Ana Gómez", null)),
+                professionalApplicationService.getById(PROFESSIONAL, ID));
+        assertEquals(new ProfessionalView(ana, new AccountName("Ana Gómez", "ana@telemed.test")),
+                professionalApplicationService.getById(ADMIN, ID));
     }
 
 }
