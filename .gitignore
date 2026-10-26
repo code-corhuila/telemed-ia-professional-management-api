@@ -1,5 +1,12 @@
 target/
 
+### Secrets (Anexo I) ###
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
 ### IntelliJ IDEA ###
 .idea/
 *.iws
