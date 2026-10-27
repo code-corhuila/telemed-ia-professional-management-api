@@ -171,6 +171,22 @@ headers, 60 s for idle keep-alive connections, a pool of 10 connections with 5 s
 `statement_timeout` of 5 s on every connection, graceful shutdown with 20 s, and 5 s per call to
 the identity service (`IDENTITY_REQUEST_TIMEOUT`).
 
+## Observability
+
+NFR-005, as in `telemed-ia-document-generation-api`:
+
+- **Metrics:** `GET /actuator/prometheus` on the management port (`MANAGEMENT_PORT`, 9081),
+  inside the platform network and without a token; the public port does not serve it. Only
+  `health` and `prometheus` are exposed. `http_server_requests_seconds` gives the request rate,
+  the errors (`status`, `outcome`) and the latency, with the buckets 100 ms, 500 ms, 1 s, 2 s and
+  5 s; every series carries `application="professional-management-api"`.
+- **Traces:** an incoming W3C `traceparent` is continued; the calls to identity carry the same
+  trace. Spans go over OTLP to `OTLP_TRACING_ENDPOINT` (the platform collector by default), and
+  every request is kept (`TRACING_SAMPLING_PROBABILITY=1.0`).
+- **Logs:** the JSON line of each request carries `correlationId`, `traceId` and `spanId`.
+
+`MetricsEndpointTest` and `TracingTest` check the three.
+
 ## Swagger / OpenAPI
 
 Swagger UI is available at:
