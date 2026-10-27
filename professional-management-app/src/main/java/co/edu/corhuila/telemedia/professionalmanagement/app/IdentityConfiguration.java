@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,10 @@ import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.Ide
 import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.UnavailableIdentityAccounts;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.out.AccountDirectory;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.out.IdentityAccountPort;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.java11.instrument.binder.jdk.MicrometerHttpClient;
+import io.micrometer.observation.ObservationRegistry;
 
 /**
  * The identity service that creates the professionals' accounts (DEC-003) and returns their
@@ -32,7 +37,22 @@ public class IdentityConfiguration {
     /** One client and one token cache for both identity adapters. */
     private record Identity(HttpClient http, IdentityServiceTokens tokens, URI url) { }
 
+    private final MeterRegistry meters;
+    private final ObservationRegistry observations;
+
     private Identity identity;
+
+    /** Without instrumentation: the calls to identity are neither measured nor traced. */
+    public IdentityConfiguration() {
+        this(new SimpleMeterRegistry(), ObservationRegistry.NOOP);
+    }
+
+    /** The calls to identity are measured and carry the current trace (NFR-005). */
+    @Autowired
+    public IdentityConfiguration(MeterRegistry meters, ObservationRegistry observations) {
+        this.meters = meters;
+        this.observations = observations;
+    }
 
     @Bean
     IdentityAccountPort identityAccounts(
@@ -67,7 +87,9 @@ public class IdentityConfiguration {
             Duration requestTimeout, Duration refreshMargin) {
         if (identity == null) {
             URI url = URI.create(identityUrl);
-            HttpClient http = HttpClient.newBuilder().connectTimeout(requestTimeout).build();
+            HttpClient http = MicrometerHttpClient.instrumentationBuilder(
+                    HttpClient.newBuilder().connectTimeout(requestTimeout).build(), meters)
+                    .observationRegistry(observations).build();
             identity = new Identity(http, new IdentityServiceTokens(http,
                     new IdentityServiceTokens.Settings(url, clientId, clientSecret, requestTimeout, refreshMargin),
                     Clock.systemUTC()), url);
