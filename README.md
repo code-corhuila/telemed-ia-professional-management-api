@@ -53,22 +53,24 @@ This service does not create users, roles, sessions, passwords or JWTs. Those be
 
 ## Architecture
 
-Hexagonal architecture laid out as in Anexo C, under `co.edu.corhuila.telemedia.professionalmanagement`:
+Hexagonal architecture in three Maven modules, laid out as in Anexo C, under
+`co.edu.corhuila.telemedia.professionalmanagement`:
 
-| Layer | Package |
-|---|---|
-| Domain | `domain.model` |
-| Input ports (use cases, commands, queries) | `application.port.in` |
-| Output ports | `application.port.out` |
-| Use cases | `application.usecase` |
-| HTTP adapter | `adapter.in.http` |
-| Persistence adapter | `adapter.out.persistence` |
-| Identity adapter | `adapter.out.identity` |
-| Composition root | `app` |
+| Layer | Module | Package |
+|---|---|---|
+| Domain | `professional-management-core` | `domain.model` |
+| Input ports (use cases, commands, queries) | `professional-management-core` | `application.port.in` |
+| Output ports | `professional-management-core` | `application.port.out` |
+| Use cases | `professional-management-core` | `application.usecase` |
+| HTTP adapter | `professional-management-adapters` | `adapter.in.http` |
+| Persistence adapter | `professional-management-adapters` | `adapter.out.persistence` |
+| Identity adapter | `professional-management-adapters` | `adapter.out.identity` |
+| Composition root | `professional-management-app` | `app` |
 
-The domain and the use cases import no framework (numeral 5.3.3; checked by
-`FrameworkFreeCoreTest`): the composition root (`app.ProfessionalManagementConfiguration`)
-creates the use cases and wires them to the adapters.
+The core declares no framework dependency (numeral 5.3.3): the Maven Enforcer fails the build
+if Spring, JPA, Hibernate, the PostgreSQL driver or SLF4J reach `professional-management-core`,
+and `FrameworkFreeCoreTest` checks its imports. The composition root
+(`app.ProfessionalManagementConfiguration`) creates the use cases and wires them to the adapters.
 
 ## Local setup
 
@@ -95,12 +97,15 @@ The persistence adapter is tested against PostgreSQL, not a substitute (numeral 
 `ProfessionalRepositoryPostgresTest` uses `TEST_DATABASE_URL`, a disposable database with the
 migrations of `telemed-ia-professional-management-db` applied, and Hibernate validates the
 mapping against that schema. Without the variable those tests are skipped (Anexo I); the HTTP
-tests run on an in-memory database.
+tests run on an in-memory database. `StatementLimitPostgresTest`, in the composition root,
+checks on the same database that every connection carries the statement limit of
+`application.yml`.
 
 ## Run the API
 
 ```bash
-mvn spring-boot:run
+mvn -B -pl professional-management-app -am package
+java -jar professional-management-app/target/professional-management-api.jar
 ```
 
 The application listens on port 8080 by default or on `SERVER_PORT` if set.
@@ -161,7 +166,7 @@ generates one, returns it, uses it as `traceId`, and writes it on every JSON log
 
 ## Explicit limits
 
-Declared in `src/main/resources/application.yml` (numeral 5.3.10): 5 s to receive the request
+Declared in `professional-management-app/src/main/resources/application.yml` (numeral 5.3.10): 5 s to receive the request
 headers, 60 s for idle keep-alive connections, a pool of 10 connections with 5 s of wait,
 `statement_timeout` of 5 s on every connection, graceful shutdown with 20 s, and 5 s per call to
 the identity service (`IDENTITY_REQUEST_TIMEOUT`).
