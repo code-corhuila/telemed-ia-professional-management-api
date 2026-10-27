@@ -25,8 +25,13 @@ services:
       # Delivered privately by the identity owner; lives only in env/<environment>.env.
       # Without it, registrations answer 503.
       SERVICE_CLIENT_SECRET: "${PROFESSIONAL_MANAGEMENT_SERVICE_CLIENT_SECRET:-}"
+      # NFR-005: Prometheus scrapes the management port; spans go to the platform collector.
+      MANAGEMENT_PORT: "9081"
+      OTLP_TRACING_ENDPOINT: "${OTLP_TRACING_ENDPOINT:-http://otel-collector:4318/v1/traces}"
     expose:
       - "8080"
+      # Management port (health and metrics), inside the platform network only.
+      - "9081"
     networks:
       - platform
 
