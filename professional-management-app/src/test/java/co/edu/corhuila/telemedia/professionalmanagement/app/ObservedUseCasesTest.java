@@ -28,6 +28,7 @@ import co.edu.corhuila.telemedia.professionalmanagement.domain.model.DuplicatePr
 import co.edu.corhuila.telemedia.professionalmanagement.domain.model.Professional;
 import co.edu.corhuila.telemedia.professionalmanagement.domain.model.ProfessionalNotFoundException;
 import co.edu.corhuila.telemedia.professionalmanagement.domain.model.ProfessionalStatus;
+import co.edu.corhuila.telemedia.professionalmanagement.domain.model.ProfessionalType;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 /**
@@ -42,7 +43,8 @@ class ObservedUseCasesTest {
 
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
-    private final Professional professional = Professional.register(UUID.randomUUID(), "RM-0001", 4);
+    private final Professional professional = new Professional(UUID.randomUUID(), UUID.randomUUID(), "RM-0001", 4,
+            ProfessionalType.GENERAL_PRACTITIONER, ProfessionalStatus.ACTIVE);
 
     @BeforeEach
     void captureLogs() {
