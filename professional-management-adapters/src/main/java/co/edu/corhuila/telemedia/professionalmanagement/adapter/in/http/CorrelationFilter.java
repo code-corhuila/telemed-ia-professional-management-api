@@ -27,7 +27,9 @@ import jakarta.servlet.http.HttpServletResponse;
  * it cannot inject content into the logs.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+// Just inside the server observation filter (HIGHEST_PRECEDENCE + 1), so the access line
+// carries the request's traceId and spanId.
+@Order(Ordered.HIGHEST_PRECEDENCE + 2)
 public class CorrelationFilter extends OncePerRequestFilter {
 
     public static final String HEADER = "X-Correlation-Id";
