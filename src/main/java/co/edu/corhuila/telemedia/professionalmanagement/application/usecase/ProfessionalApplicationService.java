@@ -1,12 +1,10 @@
 package co.edu.corhuila.telemedia.professionalmanagement.application.usecase;
 
+import java.lang.System.Logger;
+import java.lang.System.Logger.Level;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.Caller;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.GetProfessionalUseCase;
@@ -26,10 +24,9 @@ import co.edu.corhuila.telemedia.professionalmanagement.domain.model.Professiona
  * page, and the professionals are returned without names when identity cannot answer. The
  * account e-mail is kept only for administrators (DEC-009).
  */
-@Service
 public class ProfessionalApplicationService implements ListProfessionalsUseCase, GetProfessionalUseCase {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ProfessionalApplicationService.class);
+    private static final Logger LOG = System.getLogger(ProfessionalApplicationService.class.getName());
 
     private final ProfessionalRepositoryPort professionalRepositoryPort;
     private final AccountDirectory accountDirectory;
@@ -59,7 +56,7 @@ public class ProfessionalApplicationService implements ListProfessionalsUseCase,
             try {
                 names = accountDirectory.namesOf(professionals.stream().map(Professional::getIdentityUserId).toList());
             } catch (IdentityUnavailableException unavailable) {
-                LOG.warn("professionals returned without account names: {}", unavailable.getMessage());
+                LOG.log(Level.WARNING, "professionals returned without account names: {0}", unavailable.getMessage());
             }
         }
         Map<UUID, AccountName> found = names;

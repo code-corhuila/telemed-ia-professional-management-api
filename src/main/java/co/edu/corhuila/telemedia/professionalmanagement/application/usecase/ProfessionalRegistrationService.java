@@ -8,8 +8,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.springframework.stereotype.Service;
-
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.Caller;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.IdempotencyKeyReusedException;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.ProfessionalRegistrationCommand;
@@ -29,7 +27,6 @@ import co.edu.corhuila.telemedia.professionalmanagement.domain.model.Professiona
  * here. The idempotency key is checked before the account is created, so a retry never asks
  * identity for a second account; the profile and the key are stored in one transaction.
  */
-@Service
 public class ProfessionalRegistrationService implements RegisterProfessionalAccountUseCase {
 
     private final IdentityAccountPort identityAccounts;
