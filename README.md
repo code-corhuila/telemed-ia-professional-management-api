@@ -184,8 +184,15 @@ NFR-005, as in `telemed-ia-document-generation-api`:
   trace. Spans go over OTLP to `OTLP_TRACING_ENDPOINT` (the platform collector by default), and
   every request is kept (`TRACING_SAMPLING_PROBABILITY=1.0`).
 - **Logs:** the JSON line of each request carries `correlationId`, `traceId` and `spanId`.
+- **Domain events:** each registration and each status change writes one line with `event`
+  (`professional.registration.created|replayed|rejected|unavailable|failed`,
+  `professional.status.changed|rejected|failed`), `professional_id`, `status`, `reason` and
+  `duration_ms`, and counts its outcome in `professional_registrations_total{outcome}` and
+  `professional_status_changes_total{outcome}`. Names, e-mail, document, password and the
+  `Idempotency-Key` are never logged. The composition root wraps the use cases with
+  `ObservedRegistration` and `ObservedStatusChange`, so the core stays framework-free.
 
-`MetricsEndpointTest` and `TracingTest` check the three.
+`MetricsEndpointTest`, `TracingTest` and `ObservedUseCasesTest` check them. SLOs, alerts and dashboard: `09-microservices/services/04-professional-service/observability.md` in `telemed-ia-docs`.
 
 ## Swagger / OpenAPI
 
