@@ -31,4 +31,40 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                Numeral 5.3.3: the core must not depend on a web, persistence or logging
+                framework. Adding one of these artifacts fails the build.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-framework-free-core</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.springframework*</exclude>
+                                        <exclude>jakarta.persistence</exclude>
+                                        <exclude>jakarta.servlet</exclude>
+                                        <exclude>org.hibernate*</exclude>
+                                        <exclude>org.postgresql</exclude>
+                                        <exclude>org.slf4j</exclude>
+                                    </excludes>
+                                    <message>professional-management-core must not depend on frameworks or drivers (numeral 5.3.3).</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
