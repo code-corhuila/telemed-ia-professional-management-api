@@ -53,16 +53,22 @@ This service does not create users, roles, sessions, passwords or JWTs. Those be
 
 ## Architecture
 
-The project follows hexagonal architecture with separation between:
+Hexagonal architecture laid out as in Anexo C, under `co.edu.corhuila.telemedia.professionalmanagement`:
 
-- domain
-- application
-- ports
-- infrastructure/adapters
-- interfaces
-- configuration
+| Layer | Package |
+|---|---|
+| Domain | `domain.model` |
+| Input ports (use cases, commands, queries) | `application.port.in` |
+| Output ports | `application.port.out` |
+| Use cases | `application.usecase` |
+| HTTP adapter | `adapter.in.http` |
+| Persistence adapter | `adapter.out.persistence` |
+| Identity adapter | `adapter.out.identity` |
+| Composition root | `app` |
 
-The domain layer does not depend on Spring, JPA or REST components, and persistence entities remain in the infrastructure layer.
+The domain and the use cases import no framework (numeral 5.3.3; checked by
+`FrameworkFreeCoreTest`): the composition root (`app.ProfessionalManagementConfiguration`)
+creates the use cases and wires them to the adapters.
 
 ## Local setup
 
