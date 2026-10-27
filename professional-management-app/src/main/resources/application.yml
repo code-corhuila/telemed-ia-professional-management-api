@@ -51,16 +51,38 @@ identity:
   request-timeout: ${IDENTITY_REQUEST_TIMEOUT:5s}
   token-refresh-margin: 60s
 
+# NFR-005: health and Prometheus metrics on an internal management port; the public port
+# does not serve them.
 management:
+  server:
+    port: ${MANAGEMENT_PORT:9081}
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
   endpoint:
     health:
       show-details: never
+  metrics:
+    tags:
+      # The service name in the platform, as in the Prometheus scrape job.
+      application: professional-management-api
+    distribution:
+      # Buckets of the HTTP latency SLI.
+      slo:
+        http.server.requests: 100ms,500ms,1s,2s,5s
+  # One trace per request across services (W3C traceparent in and out). The volume is low,
+  # so every request is kept; spans go to the platform OpenTelemetry collector of
+  # telemed-ia-infra-postgres.
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT:http://otel-collector:4318/v1/traces}
 
-# Numeral 5.3.9: every log line is JSON and carries the request's correlationId.
+# Numeral 5.3.9: every log line is JSON and carries the request's correlationId, and traceId
+# and spanId while a span is open (NFR-005).
 logging:
   structured:
     format:
