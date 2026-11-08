@@ -130,8 +130,9 @@ docker compose -f deploy/compose.yml up -d --build
 | `GET /health` | Liveness, without a token (Anexo C). | — | `200 OK` `{"status":"UP"}` | — |
 | `GET /api/professionals?page=&limit=` | List professionals from the most recently registered to the oldest (DEC-010), one page at a time (`page` from 1, `limit` 1 to 100, default 20), each with `fullName` of its account, and `email` only for `ADMIN` (DEC-008, DEC-009). | — | `200 OK` `{data, meta: {page, limit, total, totalPages}}` | `400 Bad Request` (page or limit out of range) |
 | `GET /api/professionals/{professionalId}` | Get a professional by its UUID, with `fullName` of its account, and `email` only for `ADMIN` (DEC-008, DEC-009). | — | `200 OK` | `400 Bad Request` (not a UUID), `404 Not Found` |
-| `PATCH /api/professionals/{professionalId}/status` | Change the profile status (FR-011, ADR-013, DEC-007). `ADMIN` only; the account and appointment availability are not touched. | `{"status": "ACTIVE" \| "INACTIVE"}`, no other field | `200 OK` with the professional; the same status again changes nothing | `400`, `403`, `404` |
+| `PATCH /api/professionals/{professionalId}/status` | Change the profile status (FR-011, ADR-013, DEC-007). `ADMIN` sets either value; a workflow service token only `INACTIVE`, the saga compensation (DEC-015). The account and appointment availability are not touched. | `{"status": "ACTIVE" \| "INACTIVE"}`, no other field | `200 OK` with the professional; the same status again changes nothing | `400`, `403`, `404` |
 | `POST /api/professionals/admin/register` | Register a professional: the account in the identity domain and an `ACTIVE` general practitioner profile (DEC-003). `ADMIN` only. | header `Idempotency-Key` (8 to 128 characters); `fullName`, `email`, `identityDocument`, `password` (8 or more), `licenseNumber`, `yearsExperience` | `201 Created` with `Location`; `200 OK` with the same professional when the key is repeated | `400` (each invalid field, the header included), `403`, `409` (e-mail, document or license already registered), `422` (key reused with another body), `503` (identity unavailable) |
+| `POST /internal/professionals` | Step 2 of the onboarding saga of `telemed-ia-workflow` (DEC-015): an `ACTIVE` general practitioner profile for an account identity already created; identity is not called. Only a `SERVICE` token of a workflow client. Not routed by the gateway. | header `Idempotency-Key` (8 to 128 characters); `accountId` (UUID), `licenseNumber`, `yearsExperience`, no other field | `201 Created` with `Location`; `200 OK` with the same professional when the key is repeated | `400`, `403`, `409` (license or account already registered), `422` (key reused with another body) |
 
 ## Authentication
 
@@ -141,6 +142,11 @@ key (`JWT_PUBLIC_KEY` or `JWT_PUBLIC_KEY_FILE`), `exp` with 30 s of clock skew, 
 from the `role` claim (or a `roles` array). Any failure is `401 UNAUTHORIZED`. Registering a
 professional is administrative (DEC-003): the use case answers
 `403 FORBIDDEN` to any caller without the `ADMIN` role. Any authenticated caller reads professionals.
+
+The onboarding saga (DEC-015) calls with a service token issued by identity: role `SERVICE` and
+`sub` one of `WORKFLOW_SERVICE_CLIENTS` (comma-separated, `workflow` by default). That token may
+create a profile at `POST /internal/professionals` and set a profile `INACTIVE`; any other caller of
+the internal route, administrators included, and the workflow setting `ACTIVE`, get `403 FORBIDDEN`.
 
 The account is created at `POST /internal/accounts` of the identity service (identity-and-access-api
 #122), inside the platform network, with a service token of the client `professional-management`
