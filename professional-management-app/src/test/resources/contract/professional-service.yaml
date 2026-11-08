@@ -71,12 +71,16 @@ paths:
 
   /{id}/status:
     patch:
-      summary: Change the profile status (ADMIN only)
+      summary: Change the profile status (ADMIN; the workflow service only to INACTIVE)
       description: |
         Sets the profile status to `ACTIVE` or `INACTIVE` (FR-011, ADR-013, DEC-007).
         Setting the status the profile already has returns `200` and changes nothing,
         so a retry is safe without an `Idempotency-Key`. The Identity & Access account
         and appointment availability are not affected.
+
+        An administrator may set either value. A `SERVICE` token of a workflow client
+        may only set `INACTIVE`: it is the compensation of the onboarding saga (DEC-015).
+        Any other caller, or the workflow setting `ACTIVE`, gets `403`.
       tags: [Admin]
       security:
         - bearerAuth: []
@@ -191,6 +195,82 @@ paths:
           $ref: './_shared.yaml#/components/responses/UnprocessableEntity'
         '503':
           $ref: './_shared.yaml#/components/responses/ServiceUnavailable'
+
+  /internal/professionals:
+    servers:
+      - url: http://localhost:8080
+        description: Platform network only; not published by the gateway
+    post:
+      summary: Create the profile of an existing account (workflow service only)
+      description: |
+        Step 2 of the onboarding saga of `telemed-ia-workflow` (DEC-015): creates an
+        `ACTIVE` general practitioner profile for an account that Identity & Access has
+        already created. Identity & Access is not called.
+
+        Only a `SERVICE` token of a workflow client is accepted; any other caller gets `403`.
+
+        - First request with a new `Idempotency-Key`: `201` with `Location`.
+        - Same key and same body: `200` with the same professional.
+        - Same key with a different body: `422 BUSINESS_RULE_VIOLATION`.
+        - License number or account already registered: `409 CONFLICT`.
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: './_shared.yaml#/components/parameters/IdempotencyKey'
+        - $ref: './_shared.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, licenseNumber, yearsExperience]
+              additionalProperties: false
+              properties:
+                accountId:
+                  type: string
+                  format: uuid
+                  description: Identifier of the account in Identity & Access
+                licenseNumber:
+                  type: string
+                  maxLength: 80
+                yearsExperience:
+                  type: integer
+                  minimum: 0
+      responses:
+        '201':
+          description: Profile created with status `ACTIVE`
+          headers:
+            Location:
+              description: URI of the professional
+              schema:
+                type: string
+                example: /api/v1/professionals/6f178b1a-9c0d-4c23-96ad-1e8da3b2ef6d
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/Professional'
+        '200':
+          description: Idempotent repetition; returns the profile already created
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/Professional'
+        '400':
+          $ref: './_shared.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './_shared.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './_shared.yaml#/components/responses/Forbidden'
+        '409':
+          description: License number or account already registered
+          content:
+            application/json:
+              schema:
+                $ref: './_shared.yaml#/components/schemas/ErrorResponse'
+        '422':
+          $ref: './_shared.yaml#/components/responses/UnprocessableEntity'
 
 components:
   securitySchemes:
