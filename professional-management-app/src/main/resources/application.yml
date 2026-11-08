@@ -51,6 +51,11 @@ identity:
   request-timeout: ${IDENTITY_REQUEST_TIMEOUT:5s}
   token-refresh-margin: 60s
 
+# Onboarding saga (DEC-015): client ids of the SERVICE tokens that may create the profile of an
+# existing account (POST /internal/professionals) and deactivate it as compensation.
+workflow:
+  service-clients: ${WORKFLOW_SERVICE_CLIENTS:workflow}
+
 # NFR-005: health and Prometheus metrics on an internal management port; the public port
 # does not serve them.
 management:
