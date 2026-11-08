@@ -52,11 +52,7 @@ public class ProfessionalRegistrationController {
             @RequestHeader(name = IDEMPOTENCY_KEY, required = false) String idempotencyKey,
             @RequestBody RegisterProfessionalRequest body) {
         List<FieldDetail> invalid = new ArrayList<>();
-        if (idempotencyKey == null || idempotencyKey.length() < MIN_KEY_LENGTH
-                || idempotencyKey.length() > MAX_KEY_LENGTH) {
-            invalid.add(new FieldDetail(IDEMPOTENCY_KEY,
-                    "header required, " + MIN_KEY_LENGTH + " to " + MAX_KEY_LENGTH + " characters"));
-        }
+        checkIdempotencyKey(idempotencyKey, invalid);
         validator.validate(body).stream()
                 .map(violation -> new FieldDetail(violation.getPropertyPath().toString(), violation.getMessage()))
                 .sorted(Comparator.comparing(FieldDetail::field))
@@ -73,5 +69,14 @@ public class ProfessionalRegistrationController {
             return ResponseEntity.created(URI.create(PUBLIC_PATH + response.id())).body(response);
         }
         return ResponseEntity.ok(response);
+    }
+
+    /** Anexo C, numeral 5.3.8: every creation requires an {@code Idempotency-Key} of 8 to 128 characters. */
+    static void checkIdempotencyKey(String idempotencyKey, List<FieldDetail> invalid) {
+        if (idempotencyKey == null || idempotencyKey.length() < MIN_KEY_LENGTH
+                || idempotencyKey.length() > MAX_KEY_LENGTH) {
+            invalid.add(new FieldDetail(IDEMPOTENCY_KEY,
+                    "header required, " + MIN_KEY_LENGTH + " to " + MAX_KEY_LENGTH + " characters"));
+        }
     }
 }
