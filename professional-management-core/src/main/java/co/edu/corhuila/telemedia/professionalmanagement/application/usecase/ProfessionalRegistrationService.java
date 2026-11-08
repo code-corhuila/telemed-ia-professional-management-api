@@ -1,15 +1,10 @@
 package co.edu.corhuila.telemedia.professionalmanagement.application.usecase;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.Caller;
-import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.IdempotencyKeyReusedException;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.ProfessionalRegistrationCommand;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.RegisterProfessionalAccountUseCase;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.Registration;
@@ -17,7 +12,6 @@ import co.edu.corhuila.telemedia.professionalmanagement.application.port.out.Ide
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.out.NewProfessionalAccount;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.out.ProfessionalRegistrationStore;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.out.StoredRegistration;
-import co.edu.corhuila.telemedia.professionalmanagement.domain.model.DomainException;
 import co.edu.corhuila.telemedia.professionalmanagement.domain.model.DuplicateProfessionalIdentityException;
 import co.edu.corhuila.telemedia.professionalmanagement.domain.model.DuplicateProfessionalLicenseException;
 import co.edu.corhuila.telemedia.professionalmanagement.domain.model.Professional;
@@ -45,10 +39,10 @@ public class ProfessionalRegistrationService implements RegisterProfessionalAcco
 
         Optional<StoredRegistration> previous = store.findByIdempotencyKey(idempotencyKey);
         if (previous.isPresent()) {
-            return replay(previous.get(), requestHash);
+            return RegistrationReplays.replay(previous.get(), requestHash);
         }
         if (store.existsByLicenseNumber(command.licenseNumber())) {
-            return replayOrThrow(idempotencyKey, requestHash,
+            return RegistrationReplays.replayOrThrow(store, idempotencyKey, requestHash,
                     new DuplicateProfessionalLicenseException(command.licenseNumber().trim()));
         }
 
@@ -60,27 +54,11 @@ public class ProfessionalRegistrationService implements RegisterProfessionalAcco
             saved = store.saveRegistration(Professional.register(accountId, command.licenseNumber(),
                     command.yearsExperience()), idempotencyKey, requestHash);
         } catch (DuplicateProfessionalLicenseException | DuplicateProfessionalIdentityException duplicate) {
-            return replayOrThrow(idempotencyKey, requestHash, duplicate);
+            return RegistrationReplays.replayOrThrow(store, idempotencyKey, requestHash, duplicate);
         }
         return saved.map(professional -> new Registration(professional, true))
-                .orElseGet(() -> replay(store.findByIdempotencyKey(idempotencyKey).orElseThrow(), requestHash));
-    }
-
-    private static Registration replay(StoredRegistration previous, String requestHash) {
-        if (!previous.requestHash().equals(requestHash)) {
-            throw new IdempotencyKeyReusedException();
-        }
-        return new Registration(previous.professional(), false);
-    }
-
-    /**
-     * A concurrent twin with the same key may have stored the profile after the key was
-     * checked: then the duplicate is that same registration, answered as a retry.
-     */
-    private Registration replayOrThrow(String idempotencyKey, String requestHash, DomainException duplicate) {
-        return store.findByIdempotencyKey(idempotencyKey)
-                .map(twin -> replay(twin, requestHash))
-                .orElseThrow(() -> duplicate);
+                .orElseGet(() -> RegistrationReplays.replay(
+                        store.findByIdempotencyKey(idempotencyKey).orElseThrow(), requestHash));
     }
 
     /**
@@ -94,12 +72,7 @@ public class ProfessionalRegistrationService implements RegisterProfessionalAcco
                 trim(command.identityDocument()),
                 trim(command.licenseNumber()),
                 String.valueOf(command.yearsExperience()));
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(canonical.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 is required by every Java runtime", impossible);
-        }
+        return RegistrationReplays.sha256(canonical);
     }
 
     private static String trim(String value) {
