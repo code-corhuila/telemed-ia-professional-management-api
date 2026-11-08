@@ -10,6 +10,8 @@ import java.util.Set;
 public record Caller(String subject, Set<String> roles) {
 
     public static final String ADMIN = "ADMIN";
+    /** Role of the tokens that identity issues to other services (`sub` = the client id). */
+    public static final String SERVICE = "SERVICE";
 
     public Caller {
         Objects.requireNonNull(subject, "subject");
@@ -18,6 +20,11 @@ public record Caller(String subject, Set<String> roles) {
 
     public boolean hasRole(String role) {
         return roles.contains(role);
+    }
+
+    /** A service token whose client id is one of {@code clients} (DEC-015). */
+    public boolean isServiceClientOf(Set<String> clients) {
+        return hasRole(SERVICE) && clients.contains(subject);
     }
 
     /** DEC-003: professional profiles and the catalog are administrative. */
