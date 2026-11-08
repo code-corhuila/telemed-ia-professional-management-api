@@ -91,4 +91,54 @@ class ProfessionalStatusServiceTest {
     void aProfileNeedsAStatus() {
         assertThatThrownBy(() -> ACTIVE.withStatus(null)).isInstanceOf(InvalidBusinessDataException.class);
     }
+
+    /** DEC-015: the compensation of the onboarding saga. */
+    private ProfessionalStatusService withWorkflowClients() {
+        return new ProfessionalStatusService(professionals, Set.of("workflow"));
+    }
+
+    private static final Caller WORKFLOW = new Caller("workflow", Set.of(Caller.SERVICE));
+
+    @Test
+    void theWorkflowDeactivatesAProfile() {
+        when(professionals.findById(ID)).thenReturn(Optional.of(ACTIVE));
+        when(professionals.save(any(Professional.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Professional changed = withWorkflowClients().changeStatus(WORKFLOW, ID, ProfessionalStatus.INACTIVE);
+
+        assertThat(changed.getStatus()).isEqualTo(ProfessionalStatus.INACTIVE);
+    }
+
+    @Test
+    void aRepeatedCompensationChangesNothing() {
+        Professional inactive = ACTIVE.withStatus(ProfessionalStatus.INACTIVE);
+        when(professionals.findById(ID)).thenReturn(Optional.of(inactive));
+
+        assertThat(withWorkflowClients().changeStatus(WORKFLOW, ID, ProfessionalStatus.INACTIVE)).isSameAs(inactive);
+        verify(professionals, never()).save(any(Professional.class));
+    }
+
+    @Test
+    void theWorkflowCannotActivateAProfile() {
+        assertThatThrownBy(() -> withWorkflowClients().changeStatus(WORKFLOW, ID, ProfessionalStatus.ACTIVE))
+                .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(professionals);
+    }
+
+    @Test
+    void aServiceThatIsNotAWorkflowClientCannotDeactivate() {
+        Caller notifications = new Caller("notifications", Set.of(Caller.SERVICE));
+
+        assertThatThrownBy(() -> withWorkflowClients().changeStatus(notifications, ID, ProfessionalStatus.INACTIVE))
+                .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(professionals);
+    }
+
+    @Test
+    void withoutConfiguredWorkflowClientsNoServiceIsAllowed() {
+        ProfessionalStatusService none = new ProfessionalStatusService(professionals, Set.of());
+
+        assertThatThrownBy(() -> none.changeStatus(WORKFLOW, ID, ProfessionalStatus.INACTIVE))
+                .isInstanceOf(AccessDeniedException.class);
+    }
 }
