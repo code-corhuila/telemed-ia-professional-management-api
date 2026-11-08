@@ -73,6 +73,14 @@ class ProfessionalServiceContractTest {
             // The list schema is an allOf; merged first, so it is checked as one object.
             .withResolveCombinators(true)
             .build();
+    /** {@code /internal/professionals} has its own server entry, without the public base path (DEC-015). */
+    private static final String INTERNAL = "/internal/professionals";
+    private static final String WORKFLOW = TestTokens.bearer("workflow", "SERVICE");
+    private static final OpenApiInteractionValidator INTERNAL_CONTRACT = OpenApiInteractionValidator
+            .createForSpecificationUrl(ProfessionalServiceContractTest.class
+                    .getResource("/contract/professional-service.yaml").toString())
+            .withBasePathOverride("/")
+            .build();
 
     private final String reader = UUID.randomUUID().toString();
     private final List<Professional> seeded = new ArrayList<>();
@@ -451,6 +459,96 @@ class ProfessionalServiceContractTest {
         }
     }
 
+    // --------------------------------------------------------- Onboarding saga (DEC-015)
+
+    @Nested
+    class WorkflowSaga {
+
+        private Reply create(String token, String key, String body) throws Exception {
+            return send(post(INTERNAL, body).header("Authorization", token).header("Idempotency-Key", key));
+        }
+
+        private static String profile(UUID account, String license) {
+            return "{\"accountId\":\"" + account + "\",\"licenseNumber\":\"" + license + "\",\"yearsExperience\":3}";
+        }
+
+        private Reply status(String token, String id, String status) throws Exception {
+            return send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + BASE + "/" + id + "/status"))
+                    .header("Content-Type", "application/json").header("Authorization", token)
+                    .method("PATCH", HttpRequest.BodyPublishers.ofString("{\"status\":\"" + status + "\"}")));
+        }
+
+        @Test
+        void theWorkflowCreatesTheProfileOfAnExistingAccountAndARetryIs200() throws Exception {
+            UUID account = UUID.randomUUID();
+            String key = "saga-" + UUID.randomUUID();
+
+            Reply created = create(WORKFLOW, key, profile(account, "CT-SAGA-1"));
+            Reply retry = create(WORKFLOW, key, profile(account, "CT-SAGA-1"));
+
+            assertThat(created.status()).isEqualTo(201);
+            String id = created.json().get("id").asText();
+            assertThat(created.header("Location")).isEqualTo("/api/v1/professionals/" + id);
+            assertThat(created.json().get("identityUserId").asText()).isEqualTo(account.toString());
+            assertThat(created.json().get("status").asText()).isEqualTo("ACTIVE");
+            assertThat(retry.status()).isEqualTo(200);
+            assertThat(retry.json().get("id").asText()).isEqualTo(id);
+        }
+
+        @Test
+        void theSameKeyWithAnotherBodyIs422() throws Exception {
+            String key = "saga-" + UUID.randomUUID();
+            create(WORKFLOW, key, profile(UUID.randomUUID(), "CT-SAGA-2"));
+
+            assertError(create(WORKFLOW, key, profile(UUID.randomUUID(), "CT-SAGA-3")), 422, "BUSINESS_RULE_VIOLATION");
+        }
+
+        @Test
+        void aTakenLicenseOrAccountIs409() throws Exception {
+            UUID account = UUID.randomUUID();
+            create(WORKFLOW, "saga-" + UUID.randomUUID(), profile(account, "CT-SAGA-4"));
+
+            assertError(create(WORKFLOW, "saga-" + UUID.randomUUID(), profile(UUID.randomUUID(), "CT-SAGA-4")),
+                    409, "CONFLICT");
+            assertError(create(WORKFLOW, "saga-" + UUID.randomUUID(), profile(account, "CT-SAGA-5")),
+                    409, "CONFLICT");
+        }
+
+        @Test
+        void anUnknownFieldOrAMissingKeyIs400() throws Exception {
+            Reply reply = send(post(INTERNAL, "{\"accountId\":\"" + UUID.randomUUID()
+                    + "\",\"licenseNumber\":\"CT-SAGA-6\",\"yearsExperience\":3,\"status\":\"ACTIVE\"}")
+                    .header("Authorization", WORKFLOW));
+
+            assertError(reply, 400, "VALIDATION_ERROR");
+            assertThat(reply.json().get("details").findValuesAsText("field")).contains("Idempotency-Key", "status");
+        }
+
+        @Test
+        void onlyTheWorkflowServiceCreatesProfilesThisWay() throws Exception {
+            String body = profile(UUID.randomUUID(), "CT-SAGA-7");
+            assertError(create(ADMIN, "saga-" + UUID.randomUUID(), body), 403, "FORBIDDEN");
+            assertError(create(TestTokens.bearer("notifications", "SERVICE"), "saga-" + UUID.randomUUID(), body),
+                    403, "FORBIDDEN");
+            assertThat(send(post(INTERNAL, body).header("Idempotency-Key", "saga-" + UUID.randomUUID())).status())
+                    .isEqualTo(401);
+        }
+
+        @Test
+        void theWorkflowCompensatesByDeactivatingButNeverActivates() throws Exception {
+            String id = create(WORKFLOW, "saga-" + UUID.randomUUID(), profile(UUID.randomUUID(), "CT-SAGA-8"))
+                    .json().get("id").asText();
+
+            Reply deactivated = status(WORKFLOW, id, "INACTIVE");
+            Reply repeated = status(WORKFLOW, id, "INACTIVE");
+
+            assertThat(deactivated.status()).isEqualTo(200);
+            assertThat(deactivated.json().get("status").asText()).isEqualTo("INACTIVE");
+            assertThat(repeated.status()).isEqualTo(200);
+            assertError(status(WORKFLOW, id, "ACTIVE"), 403, "FORBIDDEN");
+        }
+    }
+
     // ------------------------------------------------------------------------- helpers
 
     private long storedTotal() {
@@ -494,11 +592,13 @@ class ProfessionalServiceContractTest {
         HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
         JsonNode json = response.body().isBlank() ? JSON.nullNode() : JSON.readTree(response.body());
         String path = request.uri().getPath();
-        if (path.startsWith(BASE)) {
+        OpenApiInteractionValidator contract = path.startsWith(BASE) ? CONTRACT
+                : path.startsWith(INTERNAL) ? INTERNAL_CONTRACT : null;
+        if (contract != null) {
             SimpleResponse.Builder contractResponse = SimpleResponse.Builder.status(response.statusCode())
                     .withBody(response.body());
             response.headers().map().forEach((name, values) -> contractResponse.withHeader(name, values));
-            ValidationReport report = CONTRACT.validateResponse(path.equals(BASE) ? BASE + "/" : path,
+            ValidationReport report = contract.validateResponse(path.equals(BASE) ? BASE + "/" : path,
                     Request.Method.valueOf(request.method()), contractResponse.build());
             assertThat(report.getMessages()).as("%s %s against professional-service.yaml", request.method(), path)
                     .isEmpty();
