@@ -3,6 +3,7 @@ package co.edu.corhuila.telemedia.professionalmanagement.app;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -107,5 +109,22 @@ class ProfessionalStatusWebTest {
                 .thenThrow(new AccessDeniedException());
 
         change(ID.toString(), "{\"status\":\"ACTIVE\"}").andExpect(status().isForbidden());
+    }
+
+    /** DEC-015: the workflow's service token reaches the use case, which decides. */
+    @Test
+    void theWorkflowServiceTokenReachesTheUseCaseWithItsClientId() throws Exception {
+        when(statusChange.changeStatus(any(Caller.class), eq(ID), eq(ProfessionalStatus.INACTIVE))).thenReturn(INACTIVE);
+
+        mockMvc.perform(patch("/api/professionals/" + ID + "/status")
+                        .header("Authorization", TestTokens.bearer("workflow", "SERVICE"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("INACTIVE"));
+
+        ArgumentCaptor<Caller> caller = ArgumentCaptor.forClass(Caller.class);
+        verify(statusChange).changeStatus(caller.capture(), eq(ID), eq(ProfessionalStatus.INACTIVE));
+        assertThat(caller.getValue().subject()).isEqualTo("workflow");
+        assertThat(caller.getValue().hasRole(Caller.SERVICE)).isTrue();
     }
 }
