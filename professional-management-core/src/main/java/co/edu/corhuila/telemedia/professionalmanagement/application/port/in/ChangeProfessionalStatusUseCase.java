@@ -8,8 +8,9 @@ import co.edu.corhuila.telemedia.professionalmanagement.domain.model.Professiona
 public interface ChangeProfessionalStatusUseCase {
 
     /**
-     * Only an administrator changes the profile status (FR-011, DEC-007). Setting the status
-     * the profile already has changes nothing.
+     * An administrator changes the profile status (FR-011, DEC-007); a workflow service client
+     * may only deactivate it, as the compensation of the onboarding saga (DEC-015). Setting the
+     * status the profile already has changes nothing.
      */
     Professional changeStatus(Caller caller, UUID professionalId, ProfessionalStatus status);
 }
