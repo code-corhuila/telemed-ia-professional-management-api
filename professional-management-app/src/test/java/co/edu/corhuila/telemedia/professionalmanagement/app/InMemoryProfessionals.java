@@ -65,6 +65,11 @@ class InMemoryProfessionals implements ProfessionalRepositoryPort, ProfessionalR
     }
 
     @Override
+    public Optional<Professional> findByIdentityUserId(UUID identityUserId) {
+        return rows.values().stream().filter(row -> row.getIdentityUserId().equals(identityUserId)).findFirst();
+    }
+
+    @Override
     public boolean existsByIdentityUserId(UUID identityUserId) {
         return rows.values().stream().anyMatch(row -> row.getIdentityUserId().equals(identityUserId));
     }
