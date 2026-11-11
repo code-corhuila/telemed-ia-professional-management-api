@@ -179,4 +179,28 @@ class ProfessionalControllerWebTest {
                 .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.details[0].field").value("page"));
     }
+
+    @Test
+    void aProfessionalReadsItsOwnProfileAtMe() throws Exception {
+        String token = co.edu.corhuila.telemedia.professionalmanagement.adapter.in.http.TestTokens.bearer(ACCOUNT.toString(), "PROFESSIONAL");
+        when(getProfessionalUseCase.getOwn(any())).thenReturn(new ProfessionalView(new Professional(ID, ACCOUNT, "ABC-123", 12, co.edu.corhuila.telemedia.professionalmanagement.domain.model.ProfessionalType.GENERAL_PRACTITIONER, co.edu.corhuila.telemedia.professionalmanagement.domain.model.ProfessionalStatus.ACTIVE),
+                new AccountName("Ana Gómez", "ana@telemed.test")));
+
+        mockMvc.perform(get("/api/professionals/me").header("Authorization", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(ID.toString()))
+                .andExpect(jsonPath("$.identityUserId").value(ACCOUNT.toString()))
+                .andExpect(jsonPath("$.email").value("ana@telemed.test"));
+
+        verify(getProfessionalUseCase).getOwn(new Caller(ACCOUNT.toString(), Set.of("PROFESSIONAL")));
+    }
+
+    @Test
+    void anotherRoleAtMeGets403() throws Exception {
+        when(getProfessionalUseCase.getOwn(any())).thenThrow(new co.edu.corhuila.telemedia.professionalmanagement.application.port.in.AccessDeniedException());
+
+        mockMvc.perform(get("/api/professionals/me").header("Authorization", ADMIN_TOKEN))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+    }
 }
