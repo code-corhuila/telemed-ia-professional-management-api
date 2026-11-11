@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.AccessDeniedException;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.Caller;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.GetProfessionalUseCase;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.ListProfessionalsUseCase;
@@ -25,6 +26,8 @@ import co.edu.corhuila.telemedia.professionalmanagement.domain.model.Professiona
  * account e-mail is kept only for administrators (DEC-009).
  */
 public class ProfessionalApplicationService implements ListProfessionalsUseCase, GetProfessionalUseCase {
+
+    private static final String PROFESSIONAL = "PROFESSIONAL";
 
     private static final Logger LOG = System.getLogger(ProfessionalApplicationService.class.getName());
 
@@ -52,24 +55,44 @@ public class ProfessionalApplicationService implements ListProfessionalsUseCase,
 
     @Override
     public ProfessionalView getOwn(Caller caller) {
-        throw new UnsupportedOperationException("not implemented");
+        if (!caller.hasRole(PROFESSIONAL)) {
+            throw new AccessDeniedException();
+        }
+        UUID account = accountOf(caller);
+        Professional professional = professionalRepositoryPort.findByIdentityUserId(account)
+                .orElseThrow(() -> new ProfessionalNotFoundException(account));
+        // DEC-016: the e-mail is the caller's own, so DEC-009 does not hide it.
+        Map<UUID, AccountName> names = namesOf(List.of(professional));
+        return new ProfessionalView(professional, names.get(account));
+    }
+
+    private static UUID accountOf(Caller caller) {
+        try {
+            return UUID.fromString(caller.subject());
+        } catch (IllegalArgumentException notAUuid) {
+            throw new ProfessionalNotFoundException(null);
+        }
     }
 
     private List<ProfessionalView> withNames(Caller caller, List<Professional> professionals) {
-        Map<UUID, AccountName> names = Map.of();
-        if (!professionals.isEmpty()) {
-            try {
-                names = accountDirectory.namesOf(professionals.stream().map(Professional::getIdentityUserId).toList());
-            } catch (IdentityUnavailableException unavailable) {
-                LOG.log(Level.WARNING, "professionals returned without account names: {0}", unavailable.getMessage());
-            }
-        }
-        Map<UUID, AccountName> found = names;
+        Map<UUID, AccountName> found = namesOf(professionals);
         boolean withEmail = caller.hasRole(Caller.ADMIN);
         return professionals.stream()
                 .map(professional -> new ProfessionalView(professional,
                         visibleTo(withEmail, found.get(professional.getIdentityUserId()))))
                 .toList();
+    }
+
+    private Map<UUID, AccountName> namesOf(List<Professional> professionals) {
+        if (professionals.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            return accountDirectory.namesOf(professionals.stream().map(Professional::getIdentityUserId).toList());
+        } catch (IdentityUnavailableException unavailable) {
+            LOG.log(Level.WARNING, "professionals returned without account names: {0}", unavailable.getMessage());
+            return Map.of();
+        }
     }
 
     /** DEC-009: the e-mail is personal data that only the administrator needs. */
