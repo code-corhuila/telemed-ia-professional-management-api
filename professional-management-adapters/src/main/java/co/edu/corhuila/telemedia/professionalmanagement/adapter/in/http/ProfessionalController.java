@@ -52,6 +52,13 @@ public class ProfessionalController {
                 listProfessionalsUseCase.list(AuthFilter.currentCaller(http), new PageRequest(page, limit))));
     }
 
+    /** DEC-016: matched before {@code /{professionalId}}, which only takes UUIDs. */
+    @GetMapping("/professionals/me")
+    public ResponseEntity<ProfessionalResponse> getOwnProfessional(HttpServletRequest http) {
+        return ResponseEntity.ok(professionalRestMapper.toResponse(
+                getProfessionalUseCase.getOwn(AuthFilter.currentCaller(http))));
+    }
+
     @GetMapping("/professionals/{professionalId}")
     public ResponseEntity<ProfessionalResponse> getProfessional(@PathVariable UUID professionalId,
                                                                 HttpServletRequest http) {
