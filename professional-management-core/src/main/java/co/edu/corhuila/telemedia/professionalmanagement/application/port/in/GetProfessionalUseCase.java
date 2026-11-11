@@ -5,4 +5,7 @@ import java.util.UUID;
 public interface GetProfessionalUseCase {
     /** Any authenticated caller; the account e-mail only for an administrator (DEC-009). */
     ProfessionalView getById(Caller caller, UUID professionalId);
+
+    /** DEC-016: the profile of the calling professional, found by the account of its token. */
+    ProfessionalView getOwn(Caller caller);
 }

@@ -62,6 +62,11 @@ public class ProfessionalRepositoryAdapter implements ProfessionalRepositoryPort
     }
 
     @Override
+    public Optional<Professional> findByIdentityUserId(UUID identityUserId) {
+        return professionalJpaRepository.findByIdentityUserId(identityUserId).map(mapper::toDomain);
+    }
+
+    @Override
     public boolean existsByIdentityUserId(UUID identityUserId) {
         return professionalJpaRepository.findByIdentityUserId(identityUserId).isPresent();
     }
