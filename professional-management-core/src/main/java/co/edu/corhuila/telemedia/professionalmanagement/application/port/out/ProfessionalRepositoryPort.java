@@ -15,6 +15,8 @@ public interface ProfessionalRepositoryPort {
     /** Ordered by license number, so pages do not overlap. */
     Page<Professional> findPage(PageRequest page);
 
+    Optional<Professional> findByIdentityUserId(UUID identityUserId);
+
     boolean existsByIdentityUserId(UUID identityUserId);
 
     boolean existsByLicenseNumber(String licenseNumber);

@@ -50,6 +50,11 @@ public class ProfessionalApplicationService implements ListProfessionalsUseCase,
         return withNames(caller, List.of(professional)).get(0);
     }
 
+    @Override
+    public ProfessionalView getOwn(Caller caller) {
+        throw new UnsupportedOperationException("not implemented");
+    }
+
     private List<ProfessionalView> withNames(Caller caller, List<Professional> professionals) {
         Map<UUID, AccountName> names = Map.of();
         if (!professionals.isEmpty()) {

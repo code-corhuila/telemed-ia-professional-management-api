@@ -192,4 +192,43 @@ class ProfessionalApplicationServiceTest {
                 professionalApplicationService.getById(ADMIN, ID));
     }
 
+
+    // DEC-016: a professional reads its own profile.
+
+    @Test
+    void aProfessionalReadsItsOwnProfileWithItsEmail() {
+        Caller owner = new Caller(ACCOUNT.toString(), Set.of("PROFESSIONAL"));
+        when(professionalRepositoryPort.findByIdentityUserId(ACCOUNT))
+                .thenReturn(Optional.of(stored(ID, ACCOUNT, "ABC-123", 7)));
+        when(accountDirectory.namesOf(List.of(ACCOUNT)))
+                .thenReturn(Map.of(ACCOUNT, new AccountName("Ana Gómez", "ana@telemed.test")));
+
+        ProfessionalView own = professionalApplicationService.getOwn(owner);
+
+        assertEquals(ID, own.professional().getId());
+        assertEquals("Ana Gómez", own.account().fullName());
+        assertEquals("ana@telemed.test", own.account().email());
+    }
+
+    @Test
+    void onlyAProfessionalHasAnOwnProfile() {
+        Caller patient = new Caller(ACCOUNT.toString(), Set.of("PATIENT"));
+
+        assertThrows(AccessDeniedException.class, () -> professionalApplicationService.getOwn(patient));
+        verifyNoInteractions(professionalRepositoryPort);
+    }
+
+    @Test
+    void aProfessionalWithoutAProfileGetsNotFound() {
+        Caller owner = new Caller(OTHER_ACCOUNT.toString(), Set.of("PROFESSIONAL"));
+        when(professionalRepositoryPort.findByIdentityUserId(OTHER_ACCOUNT)).thenReturn(Optional.empty());
+
+        assertThrows(ProfessionalNotFoundException.class, () -> professionalApplicationService.getOwn(owner));
+    }
+
+    @Test
+    void aSubjectThatIsNotAUuidHasNoProfile() {
+        assertThrows(ProfessionalNotFoundException.class, () -> professionalApplicationService.getOwn(PROFESSIONAL));
+        verifyNoInteractions(professionalRepositoryPort);
+    }
 }
