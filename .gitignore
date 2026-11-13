@@ -1,0 +1,21 @@
+target/
+
+### Secrets (Anexo I) ###
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### VS Code ###
+.vscode/
+
+### OS ###
+.DS_Store
+Thumbs.db
