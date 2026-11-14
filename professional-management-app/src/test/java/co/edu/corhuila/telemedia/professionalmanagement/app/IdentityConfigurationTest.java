@@ -8,7 +8,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
-import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.HttpAccountDirectory;
+import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.CircuitBreakingAccountDirectory;
 import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.HttpIdentityAccounts;
 import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.UnavailableIdentityAccounts;
 
@@ -32,15 +32,16 @@ class IdentityConfigurationTest {
     }
 
     @Test
-    void withTheClientSecretTheNamesComeFromTheIdentityService() {
+    void withTheClientSecretTheNamesComeFromTheIdentityServiceBehindTheBreaker() {
         assertThat(configuration.accountDirectory("http://identity-api:8081", "professional-management",
-                "client-secret-for-tests-0001", Duration.ofSeconds(5), Duration.ofMinutes(1)))
-                .isInstanceOf(HttpAccountDirectory.class);
+                "client-secret-for-tests-0001", Duration.ofSeconds(5), Duration.ofMinutes(1), 3,
+                Duration.ofSeconds(30)))
+                .isInstanceOf(CircuitBreakingAccountDirectory.class);
     }
 
     @Test
     void withoutTheClientSecretThereAreNoNames() {
         assertThat(configuration.accountDirectory("http://identity-api:8081", "professional-management", "",
-                Duration.ofSeconds(5), Duration.ofMinutes(1)).namesOf(List.of(UUID.randomUUID()))).isEmpty();
+                Duration.ofSeconds(5), Duration.ofMinutes(1), 3, Duration.ofSeconds(30)).namesOf(List.of(UUID.randomUUID()))).isEmpty();
     }
 }
