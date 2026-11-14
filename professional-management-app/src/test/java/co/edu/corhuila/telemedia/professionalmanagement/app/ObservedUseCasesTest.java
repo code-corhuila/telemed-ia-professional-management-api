@@ -61,8 +61,23 @@ class ObservedUseCasesTest {
         }
     }
 
-    private ObservedRegistration registration(RegisterProfessionalAccountUseCase delegate) {
-        return new ObservedRegistration(delegate, meters);
+    /** The registration rule of the use case, as a lambda of the test. */
+    private interface Register {
+        Registration apply(Caller caller, String key, ProfessionalRegistrationCommand command);
+    }
+
+    private ObservedRegistration registration(Register delegate) {
+        return new ObservedRegistration(new RegisterProfessionalAccountUseCase() {
+            @Override
+            public void authorize(Caller caller) {
+                caller.requireAdmin();
+            }
+
+            @Override
+            public Registration register(Caller caller, String key, ProfessionalRegistrationCommand command) {
+                return delegate.apply(caller, key, command);
+            }
+        }, meters);
     }
 
     private double registrations(String outcome) {
@@ -115,6 +130,20 @@ class ObservedUseCasesTest {
         assertThat(events()).singleElement().satisfies(event -> assertThat(event)
                 .containsEntry("event", "professional.registration.rejected")
                 .containsEntry("reason", "DuplicateProfessionalLicenseException"));
+    }
+
+    @Test
+    void aDeniedAuthorizationIsCountedAsRejectedAndAnAllowedOneLeavesNoEvent() {
+        var registration = registration((caller, key, command) -> new Registration(professional, true));
+
+        registration.authorize(ADMIN);
+        assertThatThrownBy(() -> registration.authorize(new Caller("patient-1", Set.of("PATIENT"))))
+                .isInstanceOf(AccessDeniedException.class);
+
+        assertThat(registrations("rejected")).isEqualTo(1);
+        assertThat(events()).singleElement().satisfies(event -> assertThat(event)
+                .containsEntry("event", "professional.registration.rejected")
+                .containsEntry("reason", "AccessDeniedException"));
     }
 
     @Test
