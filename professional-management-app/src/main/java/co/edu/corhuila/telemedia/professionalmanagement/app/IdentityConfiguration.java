@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.CircuitBreakingAccountDirectory;
 import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.HttpAccountDirectory;
 import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.HttpIdentityAccounts;
 import co.edu.corhuila.telemedia.professionalmanagement.adapter.out.identity.IdentityServiceTokens;
@@ -75,12 +76,17 @@ public class IdentityConfiguration {
             @Value("${identity.client-id}") String clientId,
             @Value("${identity.client-secret:}") String clientSecret,
             @Value("${identity.request-timeout}") Duration requestTimeout,
-            @Value("${identity.token-refresh-margin}") Duration refreshMargin) {
+            @Value("${identity.token-refresh-margin}") Duration refreshMargin,
+            @Value("${identity.names-breaker.failures}") int breakerFailures,
+            @Value("${identity.names-breaker.open-for}") Duration breakerOpenFor) {
         if (clientSecret == null || clientSecret.isBlank()) {
             return accountIds -> Map.of();
         }
         Identity client = identity(identityUrl, clientId, clientSecret, requestTimeout, refreshMargin);
-        return new HttpAccountDirectory(client.http(), client.tokens(), client.url(), requestTimeout);
+        // DEC-017: while identity keeps failing the reads skip the names instead of waiting for it.
+        return new CircuitBreakingAccountDirectory(
+                new HttpAccountDirectory(client.http(), client.tokens(), client.url(), requestTimeout),
+                breakerFailures, breakerOpenFor, Clock.systemUTC());
     }
 
     private synchronized Identity identity(String identityUrl, String clientId, String clientSecret,
