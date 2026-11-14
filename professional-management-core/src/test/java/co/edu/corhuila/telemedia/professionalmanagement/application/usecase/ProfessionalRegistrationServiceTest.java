@@ -45,6 +45,16 @@ class ProfessionalRegistrationServiceTest {
     }
 
     @Test
+    void authorizeAcceptsOnlyAnAdministrator() {
+        service.authorize(ADMIN);
+
+        for (String role : List.of("PATIENT", "PROFESSIONAL", Caller.SERVICE)) {
+            assertThatThrownBy(() -> service.authorize(new Caller("someone", Set.of(role))))
+                    .isInstanceOf(AccessDeniedException.class);
+        }
+    }
+
+    @Test
     void anAdministratorRegistersTheAccountAndAnActiveGeneralPractitioner() {
         Registration registration = service.register(ADMIN, KEY, command("RM-1001"));
 
