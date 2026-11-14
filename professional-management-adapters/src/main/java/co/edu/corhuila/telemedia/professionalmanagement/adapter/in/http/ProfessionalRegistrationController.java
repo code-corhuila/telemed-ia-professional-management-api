@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import co.edu.corhuila.telemedia.professionalmanagement.adapter.in.http.ApiError.FieldDetail;
+import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.Caller;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.ProfessionalRegistrationCommand;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.RegisterProfessionalAccountUseCase;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.Registration;
@@ -22,7 +23,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Validator;
 
 /**
- * {@code POST /admin/register} of professional-service.yaml (Anexo C, numeral 5.3.8). The
+ * {@code POST /admin/register} of professional-service.yaml (Anexo C, numeral 5.3.8). The caller is
+ * authorized first, so a caller who may not register gets 403 whatever it sends. Then the
  * {@code Idempotency-Key} header and the body are validated together, so one 400 names every
  * invalid field. The first registration answers 201 with {@code Location}; a retry, 200.
  */
@@ -51,6 +53,9 @@ public class ProfessionalRegistrationController {
     public ResponseEntity<ProfessionalResponse> register(HttpServletRequest http,
             @RequestHeader(name = IDEMPOTENCY_KEY, required = false) String idempotencyKey,
             @RequestBody RegisterProfessionalRequest body) {
+        Caller caller = AuthFilter.currentCaller(http);
+        registration.authorize(caller);
+
         List<FieldDetail> invalid = new ArrayList<>();
         checkIdempotencyKey(idempotencyKey, invalid);
         validator.validate(body).stream()
@@ -61,7 +66,7 @@ public class ProfessionalRegistrationController {
             throw new InvalidRequestException(invalid);
         }
 
-        Registration result = registration.register(AuthFilter.currentCaller(http), idempotencyKey,
+        Registration result = registration.register(caller, idempotencyKey,
                 new ProfessionalRegistrationCommand(body.fullName(), body.email(), body.identityDocument(),
                         body.password(), body.licenseNumber(), body.yearsExperience()));
         ProfessionalResponse response = mapper.toResponse(result.professional());
