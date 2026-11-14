@@ -140,6 +140,17 @@ class ProfessionalProfileServiceTest {
     }
 
     @Test
+    void authorizeAcceptsOnlyAWorkflowServiceClient() {
+        service.authorize(WORKFLOW);
+
+        assertThatThrownBy(() -> service.authorize(new Caller("admin-1", Set.of(Caller.ADMIN))))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> service.authorize(new Caller("notifications", Set.of(Caller.SERVICE))))
+                .isInstanceOf(AccessDeniedException.class);
+        verifyNoInteractions(store);
+    }
+
+    @Test
     void anAdministratorCannotCreateAProfileThisWay() {
         Caller admin = new Caller("admin-1", Set.of(Caller.ADMIN));
 

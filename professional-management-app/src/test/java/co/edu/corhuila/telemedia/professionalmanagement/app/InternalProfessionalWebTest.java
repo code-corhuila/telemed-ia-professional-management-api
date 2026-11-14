@@ -3,8 +3,9 @@ package co.edu.corhuila.telemedia.professionalmanagement.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -115,7 +116,7 @@ class InternalProfessionalWebTest {
                 .andExpect(jsonPath("$.details[?(@.field=='licenseNumber')]").exists())
                 .andExpect(jsonPath("$.details[?(@.field=='yearsExperience')]").exists())
                 .andExpect(jsonPath("$.traceId").value("trace-saga"));
-        verifyNoInteractions(profiles);
+        verify(profiles, never()).create(any(), any(), any());
     }
 
     @Test
@@ -123,7 +124,18 @@ class InternalProfessionalWebTest {
         create(KEY, "{\"accountId\":\"%s\",\"licenseNumber\":\"RM-8100\",\"yearsExperience\":5,\"status\":\"INACTIVE\"}"
                 .formatted(ACCOUNT))
                 .andExpect(status().isBadRequest());
-        verifyNoInteractions(profiles);
+        verify(profiles, never()).create(any(), any(), any());
+    }
+
+    @Test
+    void aCallerThatIsNotTheWorkflowGets403BeforeTheBodyIsValidated() throws Exception {
+        doThrow(new AccessDeniedException()).when(profiles).authorize(any(Caller.class));
+
+        create(KEY, "{}").andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.details").doesNotExist());
+        create(null, "[]").andExpect(status().isForbidden());
+        verify(profiles, never()).create(any(), any(), any());
     }
 
     @Test
@@ -153,6 +165,6 @@ class InternalProfessionalWebTest {
     void withoutATokenItIs401() throws Exception {
         mockMvc.perform(post(ROUTE).header("Idempotency-Key", KEY).contentType(MediaType.APPLICATION_JSON).content(BODY))
                 .andExpect(status().isUnauthorized());
-        verifyNoInteractions(profiles);
+        verify(profiles, never()).create(any(), any(), any());
     }
 }
