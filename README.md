@@ -41,7 +41,7 @@ This service does not create users, roles, sessions, passwords or JWTs. Those be
 ## Technology stack
 
 - Java 21 (Anexo I)
-- Spring Boot 3.5.6
+- Spring Boot 3.5.16
 - Maven
 - Spring Web
 - Spring Validation
