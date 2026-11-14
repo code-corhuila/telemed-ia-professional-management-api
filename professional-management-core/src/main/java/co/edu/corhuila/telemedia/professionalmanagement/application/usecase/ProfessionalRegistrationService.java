@@ -32,8 +32,13 @@ public class ProfessionalRegistrationService implements RegisterProfessionalAcco
     }
 
     @Override
-    public Registration register(Caller caller, String idempotencyKey, ProfessionalRegistrationCommand command) {
+    public void authorize(Caller caller) {
         caller.requireAdmin();
+    }
+
+    @Override
+    public Registration register(Caller caller, String idempotencyKey, ProfessionalRegistrationCommand command) {
+        authorize(caller);
         Professional.checkProfile(command.licenseNumber(), command.yearsExperience());
         String requestHash = requestHash(command);
 
