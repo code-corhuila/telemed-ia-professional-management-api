@@ -30,10 +30,15 @@ public class ProfessionalProfileService implements CreateProfessionalProfileUseC
     }
 
     @Override
-    public Registration create(Caller caller, String idempotencyKey, ProfessionalProfileCommand command) {
+    public void authorize(Caller caller) {
         if (!caller.isServiceClientOf(workflowClients)) {
             throw new AccessDeniedException();
         }
+    }
+
+    @Override
+    public Registration create(Caller caller, String idempotencyKey, ProfessionalProfileCommand command) {
+        authorize(caller);
         if (command.accountId() == null) {
             throw new InvalidBusinessDataException("accountId is required");
         }

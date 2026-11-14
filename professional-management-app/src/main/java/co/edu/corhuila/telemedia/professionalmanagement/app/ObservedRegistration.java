@@ -35,6 +35,22 @@ public class ObservedRegistration implements RegisterProfessionalAccountUseCase 
         this.meters = meters;
     }
 
+    /** A denied caller is counted and logged as rejected, as a denied registration was before. */
+    @Override
+    public void authorize(Caller caller) {
+        long start = System.nanoTime();
+        try {
+            delegate.authorize(caller);
+        } catch (AccessDeniedException denied) {
+            count("rejected");
+            LOG.atInfo().addKeyValue("event", "professional.registration.rejected")
+                    .addKeyValue("reason", denied.getClass().getSimpleName())
+                    .addKeyValue("duration_ms", millisSince(start))
+                    .log("professional registration {}", "rejected");
+            throw denied;
+        }
+    }
+
     @Override
     public Registration register(Caller caller, String idempotencyKey, ProfessionalRegistrationCommand command) {
         long start = System.nanoTime();

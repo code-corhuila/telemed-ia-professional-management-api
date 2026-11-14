@@ -1,6 +1,7 @@
 package co.edu.corhuila.telemedia.professionalmanagement.adapter.in.http;
 
 import co.edu.corhuila.telemedia.professionalmanagement.adapter.in.http.ApiError.FieldDetail;
+import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.Caller;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.CreateProfessionalProfileUseCase;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.ProfessionalProfileCommand;
 import co.edu.corhuila.telemedia.professionalmanagement.application.port.in.Registration;
@@ -52,6 +53,9 @@ public class InternalProfessionalController {
     public ResponseEntity<ProfessionalResponse> create(HttpServletRequest http,
             @RequestHeader(name = ProfessionalRegistrationController.IDEMPOTENCY_KEY, required = false) String key,
             @RequestBody JsonNode tree) {
+        Caller caller = AuthFilter.currentCaller(http);
+        profiles.authorize(caller);
+
         List<FieldDetail> invalid = new ArrayList<>();
         ProfessionalRegistrationController.checkIdempotencyKey(key, invalid);
         CreateProfileRequest body = read(tree, invalid);
@@ -62,7 +66,7 @@ public class InternalProfessionalController {
         if (!invalid.isEmpty()) {
             throw new InvalidRequestException(invalid);
         }
-        Registration result = profiles.create(AuthFilter.currentCaller(http), key,
+        Registration result = profiles.create(caller, key,
                 new ProfessionalProfileCommand(body.accountId(), body.licenseNumber(), body.yearsExperience()));
         ProfessionalResponse response = mapper.toResponse(result.professional());
         if (result.created()) {
