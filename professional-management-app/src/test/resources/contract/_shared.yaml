@@ -452,6 +452,15 @@ components:
           $ref: '#/components/schemas/Id'
           description: Medical Consultation attention summary identifier
 
+        professionalId:
+          $ref: '#/components/schemas/Id'
+          description: Professional of the consultation (consultation DEC-008)
+
+        completedAt:
+          type: string
+          format: date-time
+          description: When the consultation was completed, RFC 3339 UTC (consultation DEC-008)
+
         generatedAt:
           $ref: '#/components/schemas/Timestamp'
     Conversation:
