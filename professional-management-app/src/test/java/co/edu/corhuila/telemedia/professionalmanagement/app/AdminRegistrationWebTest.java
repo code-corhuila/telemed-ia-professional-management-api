@@ -3,8 +3,9 @@ package co.edu.corhuila.telemedia.professionalmanagement.app;
 import static org.hamcrest.Matchers.hasItems;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -81,6 +82,27 @@ class AdminRegistrationWebTest {
     }
 
     @Test
+    void aCallerWhoMayNotRegisterIs403BeforeTheBodyIsValidated() throws Exception {
+        doThrow(new AccessDeniedException()).when(registration).authorize(any(Caller.class));
+
+        mockMvc.perform(post(ROUTE).header("Authorization", TestTokens.bearer("patient-1", "PATIENT"))
+                        .header("Idempotency-Key", KEY).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.details").doesNotExist());
+        verify(registration, never()).register(any(), any(), any());
+    }
+
+    @Test
+    void theCallerIsAuthorizedBeforeRegistering() throws Exception {
+        whenRegistering(new Registration(REGISTERED, true));
+
+        register(KEY, BODY).andExpect(status().isCreated());
+
+        verify(registration).authorize(any(Caller.class));
+    }
+
+    @Test
     void theFirstRegistrationIs201WithItsLocation() throws Exception {
         whenRegistering(new Registration(REGISTERED, true));
 
@@ -117,7 +139,7 @@ class AdminRegistrationWebTest {
                 .andExpect(jsonPath("$.details[*].field").value(hasItems("Idempotency-Key", "fullName", "email",
                         "identityDocument", "password", "licenseNumber", "yearsExperience")))
                 .andExpect(jsonPath("$.traceId").value("trace-reg"));
-        verifyNoInteractions(registration);
+        verify(registration, never()).register(any(), any(), any());
     }
 
     @Test
@@ -126,7 +148,7 @@ class AdminRegistrationWebTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details[0].field").value("Idempotency-Key"));
         register("k".repeat(129), BODY).andExpect(status().isBadRequest());
-        verifyNoInteractions(registration);
+        verify(registration, never()).register(any(), any(), any());
     }
 
     @Test
